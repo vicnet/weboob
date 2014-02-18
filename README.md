@@ -1,0 +1,4 @@
+weboob
+======
+
+Extensions for weboob
