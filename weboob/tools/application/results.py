@@ -17,15 +17,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
+import weboob.tools.date as date_utils
+from weboob.capabilities import UserError
+from datetime import date
+
 
 __all__ = ['ResultsCondition', 'ResultsConditionError']
+
 
 class IResultsCondition(object):
     def is_valid(self, obj):
         raise NotImplementedError()
 
 
-class ResultsConditionError(Exception):
+class ResultsConditionError(UserError):
     pass
 
 
@@ -76,8 +81,11 @@ class ResultsCondition(IResultsCondition):
                         operator = op
                         break
                 if operator is None:
-                    raise ResultsConditionError(u'Could not find a valid operator in sub-expression "%s"' % _and)
-                l, r = _and.split(operator)
+                    raise ResultsConditionError(u'Could not find a valid operator in sub-expression "%s". Protect the complete condition expression with quotes, or read the documentation in the man manual.' % _and)
+                try:
+                    l, r = _and.split(operator)
+                except ValueError:
+                    raise ResultsConditionError(u'Syntax error in the condition expression, please check documentation')
                 and_list.append(Condition(l, operator, r))
             or_list.append(and_list)
         self.condition = or_list
@@ -93,7 +101,10 @@ class ResultsCondition(IResultsCondition):
                     # We have to change the type of v, always gived as string by application
                     typed = type(d[condition.left])
                     try:
-                        tocompare = typed(condition.right)
+                        if isinstance(d[condition.left], date_utils.date):
+                            tocompare = date(*[int(x) for x in condition.right.split('-')])
+                        else:
+                            tocompare = typed(condition.right)
                         myeval = functions[condition.op](tocompare, d[condition.left])
                     except:
                         myeval = False

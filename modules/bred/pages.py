@@ -19,6 +19,9 @@
 
 
 from mechanize import FormNotFoundError
+from weboob.tools.mech import ClientForm
+ControlNotFoundError = ClientForm.ControlNotFoundError
+
 from decimal import Decimal, InvalidOperation
 import re
 
@@ -35,8 +38,12 @@ __all__ = ['LoginPage', 'LoginResultPage', 'AccountsPage', 'TransactionsPage', '
 class LoginPage(BasePage):
     def login(self, login, passwd):
         self.browser.select_form(name='authen')
-        self.browser['id'] = login.encode(self.browser.ENCODING)
-        self.browser['pass'] = passwd.encode(self.browser.ENCODING)
+        try:
+            self.browser['id'] = login.encode(self.browser.ENCODING)
+            self.browser['pass'] = passwd.encode(self.browser.ENCODING)
+        except ControlNotFoundError:
+            self.browser.controls.append(ClientForm.TextControl('text', 'id', {'value': login.encode(self.browser.ENCODING)}))
+            self.browser.controls.append(ClientForm.TextControl('text', 'pass', {'value': passwd.encode(self.browser.ENCODING)}))
         self.browser.submit(nologin=True)
 
 
@@ -66,7 +73,7 @@ class LoginResultPage(BasePage):
                     typeCompte = m.group(1)
                     tagName = m.group(3)
                     if tagName is not None:
-                        value = self.document.xpath('//input[@id="%s%s"]' % (m.group(3), m.group(4)))[0].attrib['value']
+                        value = self.document.xpath('//input[@name="%s"]' % m.group(3))[int(m.group(4))].attrib['value']
                     else:
                         value = typeCompte
                     accounts[value] = (typeCompte, tagName)
@@ -75,10 +82,11 @@ class LoginResultPage(BasePage):
                 typeCompte, tagName = accounts[self.browser.accnum]
                 value = self.browser.accnum
             except KeyError:
+                accnums = ', '.join(accounts.keys())
                 if self.browser.accnum != '00000000000':
-                    self.logger.warning(u'Unable to find account "%s". Available ones: %s' % (self.browser.accnum, ', '.join(accounts.keys())))
+                    self.logger.warning(u'Unable to find account "%s". Available ones: %s' % (self.browser.accnum, accnums))
                 elif len(accounts) > 1:
-                    self.logger.warning('There are several accounts, please use "accnum" backend parameter to force the one to use')
+                    self.logger.warning('There are several accounts, please use "accnum" backend parameter to force the one to use (%s)' % accnums)
                 value, (typeCompte, tagName) = accounts.popitem(last=False)
             self.browser['typeCompte'] = typeCompte
             if tagName is not None:
@@ -200,22 +208,22 @@ class TransactionsPage(BasePage):
         last_debit = None
         transactions = []
 
+        # check if it's a card page, so by default transactions are not yet debited.
+        if len(self.document.xpath('//div[@class="scrollTbody"]/table//th')) == 6 and is_coming is None:
+            is_coming = True
+
         for tr in self.document.xpath('//div[@class="scrollTbody"]/table//tr'):
             cols = tr.findall('td')
 
             if len(cols) < 4:
                 continue
 
-            # check if it's a card page, so by default transactions are not yet debited.
-            if len(cols) == 6 and is_coming is None:
-                is_coming = True
-
             col_label = cols[1]
             if col_label.find('a') is not None:
                 col_label = col_label.find('a')
 
-            date = u''.join([txt.strip() for txt in cols[0].itertext()])
-            label = u''.join([txt.strip() for txt in col_label.itertext()])
+            date = self.parser.tocleanstring(cols[0])
+            label = self.parser.tocleanstring(col_label)
 
             # always strip card debits transactions. if we are on a card page, all next
             # transactions will be probably already debited.
@@ -240,8 +248,8 @@ class TransactionsPage(BasePage):
             if t.label == t.raw:
                 t.label = label
 
-            debit = u''.join([txt.strip() for txt in cols[-2].itertext()])
-            credit = u''.join([txt.strip() for txt in cols[-1].itertext()])
+            debit = self.parser.tocleanstring(cols[-2])
+            credit = self.parser.tocleanstring(cols[-1])
             t.set_amount(credit, debit)
 
             if 'CUMUL DES DEPENSES CARTES BANCAIRES REGLEES' in t.raw:
@@ -250,6 +258,11 @@ class TransactionsPage(BasePage):
                 continue
 
             t._is_coming = bool(is_coming)
+
+            # If this is a card, get the right debit date (rdate is already set
+            # with the operation date with t.parse())
+            if is_coming is not None:
+                t.date = t.parse_date(self.parser.tocleanstring(cols[-3]))
 
             transactions.append(t)
 

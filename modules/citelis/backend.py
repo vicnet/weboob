@@ -30,11 +30,11 @@ __all__ = ['CitelisBackend']
 
 class CitelisBackend(BaseBackend, ICapBank):
     NAME = 'citelis'
-    DESCRIPTION = u'Citélis French credit card processor'
+    DESCRIPTION = u'Citélis'
     MAINTAINER = u'Laurent Bachelier'
     EMAIL = 'laurent@bachelier.name'
     LICENSE = 'AGPLv3+'
-    VERSION = '0.h'
+    VERSION = '0.i'
 
     BROWSER = CitelisBrowser
 

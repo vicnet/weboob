@@ -79,9 +79,12 @@ class LoginPage(BasePage):
         try:
             self.browser.select_form(name='form')
         except:
-            pass
-        else:
-            self.browser.submit(nologin=True)
+            try:
+                self.browser.select_form(predicate=lambda x: x.attrs.get('id','')=='setInfosCGS')
+            except:
+                return
+
+        self.browser.submit(nologin=True)
 
     def myXOR(self,value,seed):
         s=''
@@ -89,7 +92,7 @@ class LoginPage(BasePage):
             s+=chr(seed^ord(value[i]))
         return s
 
-    def login(self, login, passwd, agency):
+    def login(self, login, passwd):
         try:
             vk=LCLVirtKeyboard(self)
         except VirtKeyboardError as err:
@@ -114,11 +117,7 @@ class LoginPage(BasePage):
         self.browser.select_form(
             predicate=lambda x: x.attrs.get('id','')=='formAuthenticate')
         self.browser.form.set_all_readonly(False)
-        if len(agency) > 0:
-            self.browser['agenceId'] = agency.encode('utf-8')
-            self.browser['compteId'] = login.encode('utf-8')
-        else:
-            self.browser['identifiant'] = login.encode('utf-8')
+        self.browser['identifiant'] = login.encode('utf-8')
         self.browser['postClavierXor'] = base64.b64encode(self.myXOR(password,seed))
         try:
             self.browser.submit(nologin=True)
@@ -128,7 +127,7 @@ class LoginPage(BasePage):
         return True
 
     def is_error(self):
-        errors = self.document.xpath(u'//div[@class="erreur"]')
+        errors = self.document.xpath(u'//div[@class="erreur" or @class="messError"]')
         return len(errors) > 0
 
 class ContractsPage(BasePage):
@@ -209,7 +208,7 @@ class AccountsPage(BasePage):
 class Transaction(FrenchTransaction):
     PATTERNS = [(re.compile('^(?P<category>CB)  (?P<text>RETRAIT) DU  (?P<dd>\d+)/(?P<mm>\d+)'),
                                                             FrenchTransaction.TYPE_WITHDRAWAL),
-                (re.compile('^(?P<category>PRLV) (?P<text>.*)'),
+                (re.compile('^(?P<category>(PRLV|PE)) (?P<text>.*)'),
                                                             FrenchTransaction.TYPE_ORDER),
                 (re.compile('^(?P<category>CHQ\.) (?P<text>.*)'),
                                                             FrenchTransaction.TYPE_CHECK),
@@ -220,7 +219,7 @@ class Transaction(FrenchTransaction):
                 (re.compile('^(?P<category>(PRELEVEMENT|TELEREGLEMENT|TIP)) (?P<text>.*)'),
                                                             FrenchTransaction.TYPE_ORDER),
                 (re.compile('^(?P<category>ECHEANCEPRET)(?P<text>.*)'),   FrenchTransaction.TYPE_LOAN_PAYMENT),
-                (re.compile('^(?P<category>VIR(EM(EN)?)?T? ((RECU|FAVEUR) TIERS|SEPA RECU)?)( /FRM)?(?P<text>.*)'),
+                (re.compile('^(?P<category>VIR(EM(EN)?)?T?(.PERMANENT)? ((RECU|FAVEUR) TIERS|SEPA RECU)?)( /FRM)?(?P<text>.*)'),
                                                             FrenchTransaction.TYPE_TRANSFER),
                 (re.compile('^(?P<category>REMBOURST)(?P<text>.*)'),     FrenchTransaction.TYPE_PAYBACK),
                 (re.compile('^(?P<category>COM(MISSIONS?)?)(?P<text>.*)'),   FrenchTransaction.TYPE_BANK),
@@ -284,7 +283,10 @@ class AccountHistoryPage(BasePage):
                     date = u''.join([txt.strip() for txt in td.itertext()])
                 elif value.startswith("lib") or value.startswith("opLib"):
                     # misclosed A tag requires to grab text from td
-                    raw = self.strip_label(u''.join([txt.strip() for txt in td.itertext()]))
+                    tooltip = td.xpath('./div[@class="autoTooltip"]')
+                    if len(tooltip) > 0:
+                        td.remove(tooltip[0])
+                    raw = self.parser.tocleanstring(td)
                 elif value.startswith("solde") or value.startswith("mnt") or \
                      value.startswith('debit') or value.startswith('credit'):
                     mntColumn += 1

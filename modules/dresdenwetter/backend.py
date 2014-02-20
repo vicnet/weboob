@@ -31,7 +31,7 @@ class DresdenWetterBackend(BaseBackend, ICapGauge):
     NAME = 'dresdenwetter'
     MAINTAINER = u'Florent Fourcot'
     EMAIL = 'weboob@flo.fourcot.fr'
-    VERSION = '0.h'
+    VERSION = '0.i'
     LICENSE = 'AGPLv3+'
     DESCRIPTION = u"Private wetter station Dresden"
     BROWSER = DresdenWetterBrowser
@@ -39,7 +39,7 @@ class DresdenWetterBackend(BaseBackend, ICapGauge):
     def iter_gauges(self, pattern=None):
         if pattern is None or pattern.lower() in u"dresden"\
                 or pattern.lower() in "weather":
-            gauge = Gauge("private-dresden")
+            gauge = Gauge("wetter")
             gauge.name = u"Private Wetterstation Dresden"
             gauge.city = u"Dresden"
             gauge.object = u"Weather"

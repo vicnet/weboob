@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright(C) 2010-2012 Romain Bignon
+# Copyright(C) 2010-2013 Romain Bignon
 #
 # This file is part of weboob.
 #
@@ -37,17 +37,17 @@ class BNPorcBackend(BaseBackend, ICapBank, ICapMessages):
     NAME = 'bnporc'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.h'
+    VERSION = '0.i'
     LICENSE = 'AGPLv3+'
-    DESCRIPTION = 'BNP Paribas French bank website'
+    DESCRIPTION = 'BNP Paribas'
     CONFIG = BackendConfig(
-        ValueBackendPassword('login',      label='Account ID', masked=False),
-        ValueBackendPassword('password',   label='Password', regexp='^(\d{6}|)$'),
-        ValueBackendPassword('rotating_password', default='',
-            label='Password to set when the allowed uses are exhausted (6 digits)',
-            regexp='^(\d{6}|)$'),
-        Value('website', label='Website to use', default='pp',
-              choices={'pp': 'Particuliers/Profesionnels', 'ent': 'Entreprises'}))
+        ValueBackendPassword('login',      label=u'Numéro client', masked=False),
+        ValueBackendPassword('password',   label=u'Code secret', regexp='^(\d{6}|)$'),
+        #ValueBackendPassword('rotating_password', default='',
+        #    label='Password to set when the allowed uses are exhausted (6 digits)',
+        #    regexp='^(\d{6}|)$'),
+        Value('website', label='Type de compte', default='pp',
+              choices={'pp': 'Particuliers/Professionnels', 'ent': 'Entreprises'}))
     STORAGE = {'seen': []}
 
     # Store the messages *list* for this duration
@@ -61,10 +61,10 @@ class BNPorcBackend(BaseBackend, ICapBank, ICapMessages):
     def create_default_browser(self):
         b = {'pp': BNPorc, 'ent': BNPEnterprise}
         self.BROWSER = b[self.config['website'].get()]
-        if self.config['rotating_password'].get().isdigit() and len(self.config['rotating_password'].get()) == 6:
-            rotating_password = self.config['rotating_password'].get()
-        else:
-            rotating_password = None
+        #if self.config['rotating_password'].get().isdigit() and len(self.config['rotating_password'].get()) == 6:
+        #    rotating_password = self.config['rotating_password'].get()
+        #else:
+        rotating_password = None
         if self.config['website'].get() != 'pp':
             return self.create_browser(self.config['login'].get(),
                                        self.config['password'].get())

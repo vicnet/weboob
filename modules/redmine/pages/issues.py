@@ -61,7 +61,10 @@ class BaseIssuePage(BasePage):
         try:
             select = self.parser.select(self.document.getroot(), 'select#%s' % name, 1)
         except BrokenPageError:
-            return
+            try:
+                select = self.parser.select(self.document.getroot(), 'select#%s_1' % name, 1)
+            except BrokenPageError:
+                return
         for option in select.findall('option'):
             if option.attrib['value'].isdigit():
                 yield (option.attrib['value'], option.text)
@@ -76,10 +79,27 @@ class BaseIssuePage(BasePage):
     def get_authenticity_token(self):
         tokens = self.parser.select(self.document.getroot(), 'input[name=authenticity_token]')
         if len(tokens) == 0:
-            raise IssueError("You doesn't have rights to remove this issue.")
+            tokens = self.document.xpath('//meta[@name="csrf-token"]')
+        if len(tokens) == 0:
+            raise IssueError("You don't have rights to remove this issue.")
 
-        token = tokens[0].attrib['value']
+        try:
+            token = tokens[0].attrib['value']
+        except KeyError:
+            token = tokens[0].attrib['content']
         return token
+
+    def get_errors(self):
+        errors = []
+        for li in self.document.xpath('//div[@id="errorExplanation"]//li'):
+            errors.append(li.text.strip())
+        return ', '.join(errors)
+
+    def get_value_from_label(self, name, label):
+        for option in self.document.xpath('//select[@name="%s"]/option' % name):
+            if option.text.strip().lower() == label.lower():
+                return option.attrib['value']
+        return label
 
 
 class IssuesPage(BaseIssuePage):
@@ -88,6 +108,9 @@ class IssuesPage(BaseIssuePage):
                       'versions':   'values_fixed_version_id',
                       'statuses':   'values_status_id',
                      }
+
+    def get_query_method(self):
+        return self.document.xpath('//form[@id="query_form"]')[0].attrib['method'].upper()
 
     def iter_issues(self):
         try:
@@ -139,6 +162,15 @@ class NewIssuePage(BaseIssuePage):
                       'statuses':   'issue_status_id',
                      }
 
+    def get_project_name(self):
+        m = re.search('/projects/([^/]+)/', self.url)
+        return m.group(1)
+
+    def iter_custom_fields(self):
+        for div in self.document.xpath('//form//input[starts-with(@id, "issue_custom_field")]'):
+            label = self.document.xpath('//label[@for="%s"]' % div.attrib['id'])[0]
+            yield label.text.strip(), div
+
     def set_title(self, title):
         self.browser['issue[subject]'] = title.encode('utf-8')
 
@@ -167,7 +199,15 @@ class NewIssuePage(BaseIssuePage):
                 if option.text and option.text.strip() == category:
                     self.browser['issue[category_id]'] = [option.attrib['value']]
                     return
-            self.logger.warning('Category "%s" not found' % category)
+            value = None
+            if len(self.document.xpath('//a[@title="New category"]')) > 0:
+                value = self.browser.create_category(self.get_project_name(), category, self.get_authenticity_token())
+            if value:
+                control = self.browser.find_control('issue[category_id]')
+                ClientForm.Item(control, {'name': category, 'value': value})
+                self.browser['issue[category_id]'] = [value]
+            else:
+                self.logger.warning('Category "%s" not found' % category)
         else:
             self.browser['issue[category_id]'] = ['']
 
@@ -177,6 +217,13 @@ class NewIssuePage(BaseIssuePage):
 
     def set_note(self, message):
         self.browser['notes'] = message.encode('utf-8')
+
+    def set_fields(self, fields):
+        for key, div in self.iter_custom_fields():
+            try:
+                self.browser[div.attrib['name']] = fields[key]
+            except KeyError:
+                continue
 
     def fill_form(self, **kwargs):
         self.browser.select_form(predicate=lambda form: form.attrs.get('id', '') == 'issue-form')
@@ -230,6 +277,11 @@ class IssuePage(NewIssuePage):
         params['category'] = self._parse_selection('issue_category_id')
         params['version'] = self._parse_selection('issue_fixed_version_id')
 
+        params['fields'] = {}
+        for key, div in self.iter_custom_fields():
+            value = div.attrib['value']
+            params['fields'][key] = value
+
         params['attachments'] = []
         try:
             for p in self.parser.select(content, 'div.attachments', 1).findall('p'):
@@ -245,9 +297,9 @@ class IssuePage(NewIssuePage):
         params['updates'] = []
         for div in self.parser.select(content, 'div.journal'):
             update = {}
-            update['id'] = div.find('h4').find('div').find('a').text[1:]
-            alist = div.find('h4').findall('a')
-            if len(alist) == 3:
+            alist = div.find('h4').xpath('.//a')
+            update['id'] = alist[0].text[1:]
+            if len(alist) == 4:
                 update['author'] = (int(alist[-2].attrib['href'].split('/')[-1]),
                                     to_unicode(alist[-2].text))
             else:

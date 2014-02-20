@@ -39,7 +39,7 @@ class RedmineBackend(BaseBackend, ICapContent, ICapBugTracker, ICapCollection):
     NAME = 'redmine'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.h'
+    VERSION = '0.i'
     DESCRIPTION = 'The Redmine project management web application'
     LICENSE = 'AGPLv3+'
     CONFIG = BackendConfig(Value('url',      label='URL of the Redmine website', regexp=r'https?://.*'),
@@ -189,6 +189,9 @@ class RedmineBackend(BaseBackend, ICapContent, ICapBugTracker, ICapCollection):
         issue.body = params['body']
         issue.creation = params['created_on']
         issue.updated = params['updated_on']
+        issue.fields = {}
+        for key, value in params['fields'].iteritems():
+            issue.fields[key] = value
         issue.attachments = []
         for a in params['attachments']:
             attachment = Attachment(a['id'])
@@ -220,12 +223,14 @@ class RedmineBackend(BaseBackend, ICapContent, ICapBugTracker, ICapCollection):
     def create_issue(self, project):
         try:
             with self.browser:
-                r = self.browser.query_issues(project)
+                r = self.browser.get_project(project)
         except BrowserHTTPNotFound:
             return None
 
         issue = Issue(0)
-        issue.project = self._build_project(r['project'])
+        issue.project = self._build_project(r)
+        with self.browser:
+            issue.fields = self.browser.get_custom_fields(project)
         return issue
 
     def post_issue(self, issue):
@@ -237,6 +242,7 @@ class RedmineBackend(BaseBackend, ICapContent, ICapBugTracker, ICapCollection):
                   'category':   issue.category,
                   'status':     issue.status.id if issue.status else None,
                   'body':       issue.body,
+                  'fields':     issue.fields,
                  }
 
         with self.browser:
@@ -284,14 +290,13 @@ class RedmineBackend(BaseBackend, ICapContent, ICapBugTracker, ICapCollection):
     def get_project(self, id):
         try:
             with self.browser:
-                params = self.browser.get_issue(id)
+                params = self.browser.get_project(id)
         except BrowserHTTPNotFound:
             return None
 
-        return self._build_project(params['project'])
+        return self._build_project(params)
 
     def fill_issue(self, issue, fields):
-        # currently there isn't cases where an Issue is uncompleted.
-        return issue
+        return self.get_issue(issue)
 
     OBJECTS = {Issue: fill_issue}

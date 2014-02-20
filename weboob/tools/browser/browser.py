@@ -439,6 +439,8 @@ class StandardBrowser(mechanize.Browser):
             return
 
     def lowsslcheck(self, domain, hsh):
+        if self.INSECURE:
+            return
         certhash = self._certhash(domain)
         if self.logger:
             self.logger.debug('Found %s as certificate hash' % certhash)
@@ -538,7 +540,7 @@ class BaseBrowser(StandardBrowser):
         self.username = username
         self.password = password
 
-        if not self.INSECURE and self.CERTHASH is not None and self.DOMAIN is not None:
+        if self.CERTHASH is not None and self.DOMAIN is not None:
             self.lowsslcheck(self.DOMAIN, self.CERTHASH)
 
         if self.password and get_home:
@@ -552,9 +554,9 @@ class BaseBrowser(StandardBrowser):
         """
         Submit the selected form.
         """
-        nologin = kwargs.pop('nologin', False)
+        no_login = kwargs.pop('nologin', kwargs.pop('no_login', False))
         try:
-            self._change_location(mechanize.Browser.submit(self, *args, **kwargs), no_login=nologin)
+            self._change_location(mechanize.Browser.submit(self, *args, **kwargs), no_login=no_login)
         except (mechanize.response_seek_wrapper, urllib2.HTTPError, urllib2.URLError, BadStatusLine, ssl.SSLError) as e:
             self.page = None
             raise self.get_exception(e)(e)
@@ -613,7 +615,7 @@ class BaseBrowser(StandardBrowser):
         keep_args = copy(args)
         keep_kwargs = kwargs.copy()
 
-        no_login = kwargs.pop('no_login', False)
+        no_login = kwargs.pop('no_login', kwargs.pop('nologin', False))
         kwargs['timeout'] = kwargs.get('timeout', self.DEFAULT_TIMEOUT)
 
         try:

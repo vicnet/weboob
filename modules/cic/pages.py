@@ -22,11 +22,13 @@ import urllib
 from urlparse import urlparse, parse_qs
 from decimal import Decimal
 import re
+from dateutil.relativedelta import relativedelta
 
 from weboob.tools.browser import BasePage, BrowserIncorrectPassword, BrokenPageError
 from weboob.tools.ordereddict import OrderedDict
 from weboob.capabilities.bank import Account
 from weboob.tools.capabilities.bank.transactions import FrenchTransaction
+from weboob.tools.date import parse_french_date
 
 
 class LoginPage(BasePage):
@@ -66,6 +68,14 @@ class UserSpacePage(BasePage):
 
 
 class AccountsPage(BasePage):
+    TYPES = {'C/C':             Account.TYPE_CHECKING,
+             'Livret':          Account.TYPE_SAVINGS,
+             'Pret':            Account.TYPE_LOAN,
+             'Compte Courant':  Account.TYPE_CHECKING,
+             'Compte Cheque':   Account.TYPE_CHECKING,
+             'Compte Epargne':  Account.TYPE_SAVINGS,
+            }
+
     def get_list(self):
         accounts = OrderedDict()
 
@@ -103,6 +113,11 @@ class AccountsPage(BasePage):
                 account = Account()
                 account.id = id
                 account.label = unicode(a.text).strip().lstrip(' 0123456789').title()
+
+                for pattern, actype in self.TYPES.iteritems():
+                    if account.label.startswith(pattern):
+                        account.type = actype
+
                 account._link_id = link
                 account._card_links = []
 
@@ -140,11 +155,11 @@ class Transaction(FrenchTransaction):
                 (re.compile('^PRLV (?P<text>.*)'),        FrenchTransaction.TYPE_ORDER),
                 (re.compile('^(?P<text>.*) CARTE \d+ PAIEMENT CB\s+(?P<dd>\d{2})(?P<mm>\d{2}) ?(.*)$'),
                                                           FrenchTransaction.TYPE_CARD),
-                (re.compile('^RETRAIT DAB (?P<dd>\d{2})(?P<mm>\d{2}) (?P<text>.*) CARTE \d+'),
+                (re.compile('^RETRAIT DAB (?P<dd>\d{2})(?P<mm>\d{2}) (?P<text>.*) CARTE [\*\d]+'),
                                                           FrenchTransaction.TYPE_WITHDRAWAL),
-                (re.compile('^CHEQUE$'),                  FrenchTransaction.TYPE_CHECK),
-                (re.compile('^COTIS\.? (?P<text>.*)'),    FrenchTransaction.TYPE_BANK),
-                (re.compile('^REMISE (?P<text>.*)'),      FrenchTransaction.TYPE_DEPOSIT),
+                (re.compile('^CHEQUE( (?P<text>.*))?$'),  FrenchTransaction.TYPE_CHECK),
+                (re.compile('^(F )?COTIS\.? (?P<text>.*)'),FrenchTransaction.TYPE_BANK),
+                (re.compile('^(REMISE|REM CHQ) (?P<text>.*)'),FrenchTransaction.TYPE_DEPOSIT),
                ]
 
     _is_coming = False
@@ -250,22 +265,43 @@ class ComingPage(OperationsPage):
 class CardPage(OperationsPage):
     def get_history(self):
         index = 0
-        for tr in self.document.xpath('//table[@class="liste"]/tbody/tr'):
-            tds = tr.findall('td')[:4]
-            if len(tds) < 4:
-                continue
 
-            tr = Transaction(index)
+        # Check if this is a multi-cards page
+        pages = []
+        for a in self.document.xpath('//table[@class="liste"]/tbody/tr/td/a'):
+            card_link = a.get('href')
+            history_url = 'https://%s/%s/fr/banque/%s' % (self.browser.DOMAIN, self.browser.currentSubBank, card_link)
+            page = self.browser.get_document(self.browser.openurl(history_url))
+            pages.append(page)
 
-            parts = [txt.strip() for txt in list(tds[-3].itertext()) + list(tds[-2].itertext()) if len(txt.strip()) > 0]
+        if len(pages) == 0:
+            # If not, add this page as transactions list
+            pages.append(self.document)
 
-            tr.parse(date=tds[0].text.strip(' \xa0'),
-                     raw=u' '.join(parts))
-            tr.type = tr.TYPE_CARD
+        for page in pages:
+            label = self.parser.tocleanstring(self.parser.select(page.getroot(), 'div.lister p.c', 1))
+            label = re.findall('(\d+ [^ ]+ \d+)', label)[-1]
+            # use the trick of relativedelta to get the last day of month.
+            debit_date = parse_french_date(label) + relativedelta(day=31)
 
-            tr.set_amount(tds[-1].text)
-            yield tr
+            for tr in page.xpath('//table[@class="liste"]/tbody/tr'):
+                tds = tr.findall('td')[:4]
+                if len(tds) < 4:
+                    continue
 
+                tr = Transaction(index)
+
+                parts = [txt.strip() for txt in list(tds[-3].itertext()) + list(tds[-2].itertext()) if len(txt.strip()) > 0]
+
+                tr.parse(date=tds[0].text.strip(' \xa0'),
+                         raw=u' '.join(parts))
+                tr.date = debit_date
+                tr.type = tr.TYPE_CARD
+
+                # Don't take all of the content (with tocleanstring for example),
+                # because there is a span.aide.
+                tr.set_amount(tds[-1].text)
+                yield tr
 
 class NoOperationsPage(OperationsPage):
     def get_history(self):

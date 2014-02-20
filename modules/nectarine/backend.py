@@ -27,7 +27,7 @@ class NectarineBackend(BaseBackend, ICapRadio, ICapCollection):
     NAME = 'nectarine'
     MAINTAINER = u'Thomas Lecavelier'
     EMAIL = 'thomas-weboob@lecavelier.name'
-    VERSION = '0.h'
+    VERSION = '0.i'
     DESCRIPTION = u'Nectarine Demoscene Radio'
     # License of your module
     LICENSE = 'AGPLv3+'
@@ -56,3 +56,10 @@ class NectarineBackend(BaseBackend, ICapRadio, ICapCollection):
                if rad.id == radio:
                   return rad
         return None
+
+    def fill_radio(self, radio, fields):
+        if 'current' in fields:
+            return self.get_radio(radio.id)
+        return radio
+
+    OBJECTS = {Radio: fill_radio}

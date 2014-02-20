@@ -20,8 +20,10 @@
 
 from urlparse import urlsplit
 import urllib
+import re
 import lxml.html
 
+from weboob.capabilities.bugtracker import IssueError
 from weboob.tools.browser import BaseBrowser, BrowserIncorrectPassword
 
 from .pages.index import LoginPage, IndexPage, MyPage, ProjectsPage
@@ -114,38 +116,64 @@ class RedmineBrowser(BaseBrowser):
         preview_html.find("legend").drop_tree()
         return lxml.html.tostring(preview_html)
 
+    METHODS = {'POST': {'project_id': 'project_id',
+                        'column':     'query[column_names][]',
+                        'value':      'values[%s][]',
+                        'field':      'fields[]',
+                        'operator':   'operators[%s]',
+                       },
+               'GET':  {'project_id': 'project_id',
+                        'column':     'c[]',
+                        'value':      'v[%s][]',
+                        'field':      'f[]',
+                        'operator':   'op[%s]',
+                       }
+            }
+
     def query_issues(self, project_name, **kwargs):
         self.location('/projects/%s/issues' % project_name)
         token = self.page.get_authenticity_token()
-        data = (('project_id',            project_name),
-                ('query[column_names][]', 'tracker'),
+        method = self.page.get_query_method()
+        data = ((self.METHODS[method]['project_id'], project_name),
+                (self.METHODS[method]['column'], 'tracker'),
                 ('authenticity_token',    token),
-                ('query[column_names][]', 'status'),
-                ('query[column_names][]', 'priority'),
-                ('query[column_names][]', 'subject'),
-                ('query[column_names][]', 'assigned_to'),
-                ('query[column_names][]', 'updated_on'),
-                ('query[column_names][]', 'category'),
-                ('query[column_names][]', 'fixed_version'),
-                ('query[column_names][]', 'done_ratio'),
-                ('query[column_names][]', 'author'),
-                ('query[column_names][]', 'start_date'),
-                ('query[column_names][]', 'due_date'),
-                ('query[column_names][]', 'estimated_hours'),
-                ('query[column_names][]', 'created_on'),
+                (self.METHODS[method]['column'], 'status'),
+                (self.METHODS[method]['column'], 'priority'),
+                (self.METHODS[method]['column'], 'subject'),
+                (self.METHODS[method]['column'], 'assigned_to'),
+                (self.METHODS[method]['column'], 'updated_on'),
+                (self.METHODS[method]['column'], 'category'),
+                (self.METHODS[method]['column'], 'fixed_version'),
+                (self.METHODS[method]['column'], 'done_ratio'),
+                (self.METHODS[method]['column'], 'author'),
+                (self.METHODS[method]['column'], 'start_date'),
+                (self.METHODS[method]['column'], 'due_date'),
+                (self.METHODS[method]['column'], 'estimated_hours'),
+                (self.METHODS[method]['column'], 'created_on'),
                )
         for key, value in kwargs.iteritems():
             if value:
-                data += (('values[%s][]' % key, value),)
-                data += (('fields[]', key),)
-                data += (('operators[%s]' % key, '~'),)
+                value = self.page.get_value_from_label(self.METHODS[method]['value'] % key, value)
+                data += ((self.METHODS[method]['value'] % key, value),)
+                data += ((self.METHODS[method]['field'], key),)
+                data += ((self.METHODS[method]['operator'] % key, '~'),)
 
-        self.location('/issues?set_filter=1&per_page=100', urllib.urlencode(data))
+        if method == 'POST':
+            self.location('/issues?set_filter=1&per_page=100', urllib.urlencode(data))
+        else:
+            data += (('set_filter', '1'), ('per_page', '100'))
+            self.location(self.buildurl('/issues', *data))
 
         assert self.is_on_page(IssuesPage)
         return {'project': self.page.get_project(project_name),
                 'iter':    self.page.iter_issues(),
                }
+
+    def get_project(self, project):
+        self.location('/projects/%s/issues/new' % project)
+        assert self.is_on_page(NewIssuePage)
+
+        return self.page.get_project(project)
 
     def get_issue(self, id):
         self.location('/issues/%s' % id)
@@ -165,11 +193,25 @@ class RedmineBrowser(BaseBrowser):
         assert self.is_on_page(IssuePage)
         self.page.fill_form(note=message)
 
+    def get_custom_fields(self, project):
+        self.location('/projects/%s/issues/new' % project)
+        assert self.is_on_page(NewIssuePage)
+
+        fields = {}
+        for key, div in self.page.iter_custom_fields():
+            fields[key] = div.attrib['value']
+
+        return fields
+
     def create_issue(self, project, **kwargs):
         self.location('/projects/%s/issues/new' % project)
 
         assert self.is_on_page(NewIssuePage)
         self.page.fill_form(**kwargs)
+
+        error = self.page.get_errors()
+        if len(error) > 0:
+            raise IssueError(error)
 
         assert self.is_on_page(IssuePage)
         return int(self.page.groups[0])
@@ -196,3 +238,20 @@ class RedmineBrowser(BaseBrowser):
         self.location('/projects')
 
         return self.page.iter_projects()
+
+    def create_category(self, project, name, token):
+        data = {'issue_category[name]': name.encode('utf-8')}
+        headers = {'X-CSRF-Token': token,
+                   'X-Prototype-Version': '1.7',
+                   'X-Requested-With': 'XMLHttpRequest',
+                   'Accept': 'text/javascript, text/html, application/xml, text/xml, */*',
+                  }
+        request = self.request_class(self.absurl(self.buildurl('%s/projects/%s/issue_categories' % (self.BASEPATH, project), **data)),
+                                     '', headers)
+        r = self.readurl(request)
+
+        # Element.replace("issue_category_id", "\u003Cselect id=\"issue_category_id\" name=\"issue[category_id]\"\u003E\u003Coption\u003E\u003C/option\u003E\u003Coption value=\"28\"\u003Ebnporc\u003C/option\u003E\n\u003Coption value=\"31\"\u003Ebp\u003C/option\u003E\n\u003Coption value=\"30\"\u003Ecrag2r\u003C/option\u003E\n\u003Coption value=\"29\"\u003Ecragr\u003C/option\u003E\n\u003Coption value=\"27\"\u003Ei\u003C/option\u003E\n\u003Coption value=\"32\"\u003Elol\u003C/option\u003E\n\u003Coption value=\"33\" selected=\"selected\"\u003Elouiel\u003C/option\u003E\u003C/select\u003E");
+
+        m = re.search('''value=\\\\"(\d+)\\\\" selected''', r)
+        if m:
+            return m.group(1)

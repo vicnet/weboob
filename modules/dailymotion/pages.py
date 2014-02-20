@@ -21,8 +21,8 @@ from weboob.tools.json import json
 import datetime
 import re
 
-from weboob.tools.capabilities.thumbnail import Thumbnail
 from weboob.capabilities import NotAvailable
+from weboob.capabilities.image import BaseImage
 from weboob.tools.misc import html2text
 from weboob.tools.browser import BasePage, BrokenPageError
 
@@ -63,12 +63,11 @@ class IndexPage(BasePage):
                 else:
                     raise BrokenPageError('Unable to parse duration %r' % self.parser.select(div, 'div.duration', 1).text)
                 video.duration = datetime.timedelta(hours=int(hours), minutes=int(minutes), seconds=int(seconds))
-            url = unicode(self.parser.select(div, 'img.dmco_image', 1).attrib['data-src'])
+            url = unicode(self.parser.select(div, 'img.preview', 1).attrib['data-src'])
             # remove the useless anti-caching
             url = re.sub('\?\d+', '', url)
-            # use the bigger thumbnail
-            url = url.replace('jpeg_preview_medium.jpg', 'jpeg_preview_large.jpg')
-            video.thumbnail = Thumbnail(unicode(url))
+            video.thumbnail = BaseImage(url)
+            video.thumbnail.url = video.thumbnail.id
 
             video.set_empty_fields(NotAvailable, ('url',))
             yield video
@@ -87,18 +86,43 @@ class VideoPage(BasePage):
         if video is None:
             video = DailymotionVideo(self.group_dict['id'])
 
-        div = self.parser.select(self.document.getroot(), 'div#content', 1)
+        head = self.parser.select(self.document.getroot(), 'head', 1)
 
-        video.title = unicode(self.parser.select(div, 'span.title', 1).text).strip()
-        video.author = unicode(self.parser.select(div, 'a.name, span.name, a[rel=author]', 1).text).strip()
+        video.title = unicode(self.parser.select(head, 'meta[property="og:title"]', 1).get("content")).strip()
+        video.author = unicode(self.parser.select(head, 'meta[name="author"]', 1).get("content")).strip()
+
+        url = unicode(self.parser.select(head, 'meta[property="og:image"]', 1).get("content")).strip()
+        # remove the useless anti-caching
+        url = re.sub('\?\d+', '', url)
+        video.thumbnail = BaseImage(url)
+        video.thumbnail.url = video.thumbnail.id
+
         try:
-            video.description = html2text(self.parser.tostring(self.parser.select(div, 'div#video_description', 1))).strip() or unicode()
+            parts = self.parser.select(head, 'meta[property="video:duration"]', 1).get("content").strip().split(':')
+        except BrokenPageError:
+            # it's probably a live, np.
+            video.duration = NotAvailable
+        else:
+            if len(parts) == 1:
+                seconds = parts[0]
+                hours = minutes = 0
+            elif len(parts) == 2:
+                minutes, seconds = parts
+                hours = 0
+            elif len(parts) == 3:
+                hours, minutes, seconds = parts
+            else:
+                raise BrokenPageError('Unable to parse duration %r' % parts)
+            video.duration = datetime.timedelta(hours=int(hours), minutes=int(minutes), seconds=int(seconds))
+
+        try:
+            video.description = html2text(self.parser.select(head, 'meta[property="og:description"]', 1).get("content")).strip() or unicode()
         except BrokenPageError:
             video.description = u''
 
         embed_page = self.browser.readurl('http://www.dailymotion.com/embed/video/%s' % video.id)
 
-        m = re.search('var info = ({.*?}),', embed_page)
+        m = re.search('var info = ({.*?}),[^{"]', embed_page)
         if not m:
             raise BrokenPageError('Unable to find information about video')
 
@@ -111,6 +135,7 @@ class VideoPage(BasePage):
                 break
         else:
             raise BrokenPageError(u'Unable to extract video URL')
+
         video.url = info[max_quality]
 
         video.set_empty_fields(NotAvailable)

@@ -20,6 +20,7 @@
 
 from datetime import date, datetime
 from binascii import crc32
+import re
 
 from .base import CapBaseObject, Field, StringField, DateField, DecimalField, IntField, UserError, Currency
 from .collection import ICapCollection
@@ -48,8 +49,8 @@ class Recipient(CapBaseObject, Currency):
     Recipient of a transfer.
     """
 
-    label = StringField('Name')
-    currency =  IntField('Currency', default=Currency.CUR_UNKNOWN)
+    label =     StringField('Name')
+    currency =  StringField('Currency', default=None)
 
     def __init__(self):
         CapBaseObject.__init__(self, 0)
@@ -73,6 +74,7 @@ class Account(Recipient):
     TYPE_LOAN             = 4
     TYPE_MARKET           = 5  # Stock market or other variable investments
     TYPE_JOINT            = 6  # Joint account
+    TYPE_CARD             = 7  # Card account
 
     type =      IntField('Type of account', default=TYPE_UNKNOWN)
     balance =   DecimalField('Balance on this bank account')
@@ -96,6 +98,7 @@ class Transaction(CapBaseObject):
     TYPE_CARD         = 7
     TYPE_LOAN_PAYMENT = 8
     TYPE_BANK         = 9
+    TYPE_CASH_DEPOSIT = 10
 
     date =      DateField('Debit date on the bank statement')
     rdate =     DateField('Real date, when the payment has been made; usually extracted from the label or from credit card info')
@@ -112,7 +115,7 @@ class Transaction(CapBaseObject):
     def unique_id(self, seen=None, account_id=None):
         crc = crc32(str(self.date))
         crc = crc32(str(self.amount), crc)
-        crc = crc32(self.label.encode("utf-8"), crc)
+        crc = crc32(re.sub('[ ]+', ' ', self.raw.encode("utf-8")), crc)
 
         if account_id is not None:
             crc = crc32(str(account_id), crc)

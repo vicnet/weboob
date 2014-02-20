@@ -18,17 +18,18 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
+import datetime
 from urlparse import urlsplit, parse_qsl
 from decimal import Decimal
 import re
-from mechanize import Cookie
+from mechanize import Cookie, FormNotFoundError
 
-from weboob.tools.browser import BasePage, BrowserUnavailable, BrokenPageError
+from weboob.tools.browser import BasePage as _BasePage, BrowserUnavailable, BrokenPageError
 from weboob.capabilities.bank import Account
 from weboob.tools.capabilities.bank.transactions import FrenchTransaction
 
 
-__all__ = ['LoginPage', 'IndexPage', 'AccountsPage', 'TransactionsPage', 'UnavailablePage', 'RedirectPage']
+__all__ = ['LoginPage', 'IndexPage', 'AccountsPage', 'CardsPage', 'TransactionsPage', 'UnavailablePage', 'RedirectPage']
 
 
 class WikipediaARC4(object):
@@ -53,6 +54,11 @@ class WikipediaARC4(object):
             self.state[self.x], self.state[self.y] = self.state[self.y], self.state[self.x]
             output[i] = chr((ord(input[i]) ^ self.state[(self.state[self.x] + self.state[self.y]) & 0xFF]))
         return ''.join(output)
+
+
+class BasePage(_BasePage):
+    def get_token(self):
+        return self.parser.select(self.document.getroot(), '//form//input[@name="token"]', 1, 'xpath').attrib['value']
 
 
 class RedirectPage(BasePage):
@@ -130,6 +136,13 @@ class RedirectPage(BasePage):
         if redirect_url is not None:
             self.browser.location(self.browser.request_class(self.browser.absurl(redirect_url), None, {'Referer': self.url}))
 
+        try:
+            self.browser.select_form(name="CyberIngtegrationPostForm")
+        except FormNotFoundError:
+            pass
+        else:
+            self.browser.submit(nologin=True)
+
 
 class UnavailablePage(BasePage):
     def on_loaded(self):
@@ -171,7 +184,18 @@ class IndexPage(BasePage):
 
 class HomePage(BasePage):
     def get_token(self):
-        vary = self.group_dict['vary']
+        vary = None
+        if self.group_dict.get('vary', None) is not None:
+            vary = self.group_dict['vary']
+        else:
+            for script in self.document.xpath('//script'):
+                if script.text is None:
+                    continue
+
+                m = re.search("'vary', '([\d-]+)'\)", script.text)
+                if m:
+                    vary = m.group(1)
+                    break
 
         #r = self.browser.openurl(self.browser.request_class(self.browser.buildurl(self.browser.absurl("/portailinternet/_layouts/Ibp.Cyi.Application/GetuserInfo.ashx"), action='UInfo', vary=vary), None, {'Referer': self.url}))
         #print r.read()
@@ -195,17 +219,34 @@ class HomePage(BasePage):
 
 class AccountsPage(BasePage):
     ACCOUNT_TYPES = {u'Mes comptes d\'épargne':     Account.TYPE_SAVINGS,
+                     u'Mon épargne':                Account.TYPE_SAVINGS,
+                     u'Placements':                 Account.TYPE_SAVINGS,
                      u'Mes comptes':                Account.TYPE_CHECKING,
+                     u'Comptes en euros':           Account.TYPE_CHECKING,
+                     u'Mes emprunts':               Account.TYPE_LOAN,
+                     u'Financements':               Account.TYPE_LOAN,
+                     u'Mes services':               None,    # ignore this kind of accounts (no bank ones)
                     }
 
     def is_error(self):
         for script in self.document.xpath('//script'):
-            if script.text is not None and u"Le service est momentanément indisponible" in script.text:
+            if script.text is not None and \
+               (u"Le service est momentanément indisponible" in script.text or
+                u"Votre abonnement ne vous permet pas d'accéder à ces services" in script.text):
                 return True
 
         return False
 
-    def get_list(self):
+    def is_short_list(self):
+        return len(self.document.xpath('//script[contains(text(), "EQUIPEMENT_COMPLET")]')) > 0
+
+    COL_NUMBER = 0
+    COL_TYPE = 1
+    COL_LABEL = 2
+    COL_BALANCE = 3
+    COL_COMING = 4
+
+    def iter_accounts(self, next_pages):
         account_type = Account.TYPE_UNKNOWN
 
         params = {}
@@ -214,6 +255,16 @@ class AccountsPage(BasePage):
 
         for div in self.document.xpath('//div[@class="btit"]'):
             account_type = self.ACCOUNT_TYPES.get(div.text.strip(), Account.TYPE_UNKNOWN)
+
+            if account_type is None:
+                # ignore services accounts
+                continue
+
+            currency = None
+            for th in div.getnext().xpath('.//thead//th'):
+                m = re.match('.*\((\w+)\)$', th.text)
+                if m and currency is None:
+                    currency = Account.get_currency(m.group(1))
 
             for tr in div.getnext().xpath('.//tbody/tr'):
                 if not 'id' in tr.attrib:
@@ -231,15 +282,88 @@ class AccountsPage(BasePage):
                 account.label = u' '.join([u''.join([txt.strip() for txt in tds[1].itertext()]),
                                            u''.join([txt.strip() for txt in tds[2].itertext()])]).strip()
                 account.type = account_type
-                balance = u''.join([txt.strip() for txt in tds[3].itertext()])
-                account.balance = Decimal(FrenchTransaction.clean_amount(balance))
-                account.currency = account.get_currency(balance)
-                account._params = params.copy()
-                account._params['dialogActionPerformed'] = 'SOLDE'
-                account._params['attribute($SEL_$%s)' % tr.attrib['id'].split('_')[0]] = tr.attrib['id'].split('_', 1)[1]
+
+                balance = FrenchTransaction.clean_amount(u''.join([txt.strip() for txt in tds[3].itertext()]))
+                account.balance = Decimal(balance or '0.0')
+                account.currency = currency
+                if account.type == account.TYPE_LOAN:
+                    account.balance = - abs(account.balance)
+
+                account._prev_debit = None
+                account._next_debit = None
+                account._params = None
+                account._coming_params = None
+                if balance != u'' and len(tds[3].xpath('.//a')) > 0:
+                    account._params = params.copy()
+                    account._params['dialogActionPerformed'] = 'SOLDE'
+                    account._params['attribute($SEL_$%s)' % tr.attrib['id'].split('_')[0]] = tr.attrib['id'].split('_', 1)[1]
+
+                if len(tds) >= 5 and len(tds[self.COL_COMING].xpath('.//a')) > 0:
+                    _params = account._params.copy()
+                    _params['dialogActionPerformed'] = 'ENCOURS_COMPTE'
+                    next_pages.append(_params)
                 yield account
 
-        return
+
+class CardsPage(BasePage):
+    COL_ID = 0
+    COL_TYPE = 1
+    COL_LABEL = 2
+    COL_DATE = 3
+    COL_AMOUNT = 4
+
+    def iter_accounts(self):
+        params = {}
+        for field in self.document.xpath('//input'):
+            params[field.attrib['name']] = field.attrib.get('value', '')
+
+        account = None
+        for tr in self.document.xpath('//table[@id="TabCtes"]/tbody/tr'):
+            cols = tr.xpath('./td')
+
+            id = self.parser.tocleanstring(cols[self.COL_ID])
+            if len(id) > 0:
+                if account is not None:
+                    yield account
+                account = Account()
+                account.id = id
+                account.balance = account.coming = Decimal('0')
+                account._next_debit = datetime.date.today()
+                account._prev_debit = datetime.date(2000,1,1)
+                account.label = u' '.join([self.parser.tocleanstring(cols[self.COL_TYPE]),
+                                           self.parser.tocleanstring(cols[self.COL_LABEL])])
+                account._coming_params = params.copy()
+                account._coming_params['dialogActionPerformed'] = 'SELECTION_ENCOURS_CARTE'
+                account._coming_params['attribute($SEL_$%s)' % tr.attrib['id'].split('_')[0]] = tr.attrib['id'].split('_', 1)[1]
+            elif account is None:
+                raise BrokenPageError('Unable to find accounts on cards page')
+            else:
+                account._params = params.copy()
+                account._params['dialogActionPerformed'] = 'SELECTION_ENCOURS_CARTE'
+                account._params['attribute($SEL_$%s)' % tr.attrib['id'].split('_')[0]] = tr.attrib['id'].split('_', 1)[1]
+
+            date_col = self.parser.tocleanstring(cols[self.COL_DATE])
+            m = re.search('(\d+)/(\d+)/(\d+)', date_col)
+            if not m:
+                self.logger.warning('Unable to parse date %r' % date_col)
+                continue
+
+            date = datetime.date(*reversed(map(int, m.groups())))
+            if date.year < 100:
+                date = date.replace(year=date.year+2000)
+
+            amount = Decimal(FrenchTransaction.clean_amount(self.parser.tocleanstring(cols[self.COL_AMOUNT])))
+
+            if not date_col.endswith('(1)'):
+                # debited
+                account.coming += - abs(amount)
+                account._next_debit = date
+            elif date > account._prev_debit:
+                account._prev_balance = - abs(amount)
+                account._prev_debit = date
+
+        if account is not None:
+            yield account
 
 
 class Transaction(FrenchTransaction):
@@ -271,7 +395,7 @@ class Transaction(FrenchTransaction):
 
 class TransactionsPage(BasePage):
     def get_next_params(self):
-        nxt = self.document.xpath('//li[@id="tbl1_nxt"]')
+        nxt = self.document.xpath('//li[contains(@id, "_nxt")]')
         if len(nxt) == 0 or nxt[0].attrib.get('class', '') == 'nxt-dis':
             return None
 
@@ -281,26 +405,34 @@ class TransactionsPage(BasePage):
 
         params['validationStrategy'] = 'NV'
         params['pagingDirection'] = 'NEXT'
-        params['pagerName'] = 'tbl1'
+        params['pagerName'] = nxt[0].attrib['id'].split('_', 1)[0]
 
         return params
 
+    def get_history(self, account, coming):
+        if len(self.document.xpath('//table[@id="tbl1"]')) > 0:
+            return self.get_account_history()
+        if len(self.document.xpath('//table[@id="TabFact"]')) > 0:
+            return self.get_card_history(account, coming)
+
+        raise BrokenPageError('Unable to find what kind of history it is.')
+
     COL_COMPTA_DATE = 0
     COL_LABEL = 1
-    COL_REF = 2
-    COL_OP_DATE = 3
-    COL_VALUE_DATE = 4
+    COL_REF = 2 # optional
+    COL_OP_DATE = -4
+    COL_VALUE_DATE = -3
     COL_DEBIT = -2
     COL_CREDIT = -1
 
-    def get_history(self):
+    def get_account_history(self):
         for tr in self.document.xpath('//table[@id="tbl1"]/tbody/tr'):
             tds = tr.findall('td')
 
             if len(tds) < 5:
                 continue
 
-            t = Transaction(tr.attrib['id'].split('_', 1)[1])
+            t = Transaction(tr.attrib.get('id', '0_0').split('_', 1)[1])
 
             # XXX We currently take the *value* date, but it will probably
             # necessary to use the *operation* one.
@@ -315,3 +447,43 @@ class TransactionsPage(BasePage):
             t.parse(date, re.sub(r'[ ]+', ' ', raw), vdate)
             t.set_amount(credit, debit)
             yield t
+
+    COL_CARD_DATE = 0
+    COL_CARD_LABEL = 1
+    COL_CARD_AMOUNT = 2
+
+    def get_card_history(self, account, coming):
+        if coming:
+            debit_date = account._next_debit
+        else:
+            debit_date = account._prev_debit
+            if 'ContinueTask.do' in self.url:
+                t = Transaction(0)
+                t.parse(debit_date, 'RELEVE CARTE')
+                t.amount = -account._prev_balance
+                yield t
+
+        for i, tr in enumerate(self.document.xpath('//table[@id="TabFact"]/tbody/tr')):
+            tds = tr.findall('td')
+
+            if len(tds) < 3:
+                continue
+
+            t = Transaction(i)
+
+            date = self.parser.tocleanstring(tds[self.COL_CARD_DATE])
+            label = self.parser.tocleanstring(tds[self.COL_CARD_LABEL])
+            amount = '-' + self.parser.tocleanstring(tds[self.COL_CARD_AMOUNT])
+
+            t.parse(debit_date, re.sub(r'[ ]+', ' ', label))
+            t.set_amount(amount)
+            t.rdate = t.parse_date(date)
+            yield t
+
+    def no_operations(self):
+        if len(self.document.xpath('//table[@id="tbl1" or @id="TabFact"]//td[@colspan]')) > 0:
+            return True
+        if len(self.document.xpath(u'//div[contains(text(), "Accès à LineBourse")]')) > 0:
+            return True
+
+        return False

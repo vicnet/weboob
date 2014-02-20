@@ -19,6 +19,7 @@
 
 
 from weboob.tools.browser import BasePage
+from weboob.tools.misc import html2text
 import dateutil.parser
 import re
 
@@ -32,7 +33,7 @@ class SearchPage(BasePage):
         re_id_title = re.compile('/offres-emploi-cadres/\d*_\d*_\d*_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?).html', re.DOTALL)
         divs = self.document.getroot().xpath("//div[@class='boxContent offre']") + self.document.getroot().xpath("//div[@class='boxContent offre even']")
         for div in divs:
-            a = self.parser.select(div, 'div/h3/a', 1, method='xpath')
+            a = self.parser.select(div, 'div/div/h3/a', 1, method='xpath')
             _id = u'%s/%s' % (re_id_title.search(a.attrib['href']).group(1), re_id_title.search(a.attrib['href']).group(9))
             advert = ApecJobAdvert(_id)
             advert.title = u'%s' % re_id_title.search(a.attrib['href']).group(9).replace('-', ' ')
@@ -52,7 +53,8 @@ class AdvertPage(BasePage):
             advert = ApecJobAdvert(_id)
             advert.title = re_id_title.search(url).group(2).replace('-', ' ')
 
-        advert.description = self.document.getroot().xpath("//div[@class='contentWithDashedBorderTop marginTop boxContent']/div")[0].text_content()
+        description = self.document.getroot().xpath("//div[@class='contentWithDashedBorderTop marginTop boxContent']/div")[0]
+        advert.description = html2text(self.parser.tostring(description))
 
         advert.job_name = advert.title
 

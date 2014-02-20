@@ -22,6 +22,7 @@ import atexit
 from cmd import Cmd
 import logging
 import locale
+import re
 from optparse import OptionGroup, OptionParser, IndentedHelpFormatter
 import os
 import sys
@@ -69,6 +70,7 @@ class ReplOptionFormatter(IndentedHelpFormatter):
                 s += '    %s\n' % c
         return s
 
+
 def defaultcount(default_count=10):
     def deco(f):
         def inner(self, *args, **kwargs):
@@ -87,6 +89,22 @@ def defaultcount(default_count=10):
 
         return inner
     return deco
+
+# First sort in alphabetical of backend
+# Second, first with ID
+def comp_object(obj1, obj2):
+    if obj1.backend == obj2.backend:
+        if obj1.id == obj2.id:
+            return 0
+        elif obj1.id > obj2.id:
+            return 1
+        else:
+            return -1
+    elif obj1.backend > obj2.backend:
+        return 1
+    else:
+        return -1
+
 
 class ReplApplication(Cmd, ConsoleApplication):
     """
@@ -133,7 +151,7 @@ class ReplApplication(Cmd, ConsoleApplication):
         self._parser.formatter = ReplOptionFormatter()
 
         results_options = OptionGroup(self._parser, 'Results Options')
-        results_options.add_option('-c', '--condition', help='filter result items to display given a boolean expression')
+        results_options.add_option('-c', '--condition', help='filter result items to display given a boolean expression. See CONDITION section for the syntax')
         results_options.add_option('-n', '--count', type='int',
                                    help='limit number of results (from each backends)')
         results_options.add_option('-s', '--select', help='select result item keys to display (comma separated)')
@@ -224,7 +242,14 @@ class ReplApplication(Cmd, ConsoleApplication):
             else:
                 try:
                     backend = self.weboob.get_backend(obj.backend)
-                    return backend.fillobj(obj, fields)
+                    actual_method = getattr(backend, method, None)
+                    if actual_method is None:
+                        return None
+                    else:
+                        if callable(actual_method):
+                            return backend.fillobj(obj, fields)
+                        else:
+                            return None
                 except UserError as e:
                     self.bcall_error_handler(backend, e, '')
 
@@ -235,19 +260,33 @@ class ReplApplication(Cmd, ConsoleApplication):
         backend_names = (backend_name,) if backend_name is not None else self.enabled_backends
 
         # if backend's service returns several objects, try to find the one
-        # with wanted ID. If not found, get the last object.
+        # with wanted ID. If not found, get the last not None object.
         obj = None
-        for backend, obj in self.do(method, _id, backends=backend_names, fields=fields, **kargs):
-            if obj and obj.id == _id:
-                return obj
+
+        # remove backends that do not have the required method
+        new_backend_names = []
+        for backend in backend_names:
+            if isinstance(backend, (str, unicode)):
+                actual_backend = self.weboob.get_backend(backend)
+            else:
+                actual_backend = backend
+            if getattr(actual_backend, method, None) is not None:
+                new_backend_names.append(backend)
+        backend_names = tuple(new_backend_names)
+        for backend, objiter in self.do(method, _id, backends=backend_names, fields=fields, **kargs):
+            if objiter:
+                obj = objiter
+                if objiter.id == _id:
+                    return obj
         return obj
 
-    def get_object_list(self, method=None):
+    def get_object_list(self, method=None, *args, **kwargs):
         # return cache if not empty
         if len(self.objects) > 0:
             return self.objects
         elif method is not None:
-            for backend, object in self.do(method):
+            kwargs['backends'] = self.enabled_backends
+            for backend, object in self.weboob.do(self._do_complete, None, None, method, *args, **kwargs):
                 self.add_object(object)
             return self.objects
         # XXX: what can we do without method?
@@ -304,7 +343,15 @@ class ReplApplication(Cmd, ConsoleApplication):
         Call Weboob.do(), passing count and selected fields given by user.
         """
         backends = kwargs.pop('backends', None)
-        kwargs['backends'] = self.enabled_backends if backends is None else backends
+        if backends is None:
+            kwargs['backends'] = []
+            for backend in self.enabled_backends:
+                actual_function = getattr(backend, function, None)
+                if actual_function is not None and callable(actual_function):
+                    kwargs['backends'].append(backend)
+        else:
+            kwargs['backends'] = backends
+
         fields = kwargs.pop('fields', self.selected_fields) or self.selected_fields
         if '$direct' in fields:
             fields = []
@@ -477,11 +524,6 @@ class ReplApplication(Cmd, ConsoleApplication):
 
         if self.options.condition:
             self.condition = ResultsCondition(self.options.condition)
-            # Enable infinite search by default is condition is set
-            # (count applies on the non-filtered result, and can be confusing for users)
-            if self._is_default_count:
-                self.options.count = None
-                self._is_default_count = False
         else:
             self.condition = None
 
@@ -752,7 +794,7 @@ class ReplApplication(Cmd, ConsoleApplication):
         """
         condition [EXPRESSION | off]
 
-        If an argument is given, set the condition expression used to filter the results.
+        If an argument is given, set the condition expression used to filter the results. See CONDITION section for more details and the expression.
         If the "off" value is given, conditional filtering is disabled.
 
         If no argument is given, print the current condition expression.
@@ -799,8 +841,8 @@ class ReplApplication(Cmd, ConsoleApplication):
                         self.options.count = count
                         self._is_default_count = False
                     else:
-                        print >>sys.stderr, 'Number must be at least 1.'
-                        return 2
+                        self.options.count = None
+                        self._is_default_count = False
         else:
             if self.options.count is None:
                 print 'Counting disabled.'
@@ -937,19 +979,28 @@ class ReplApplication(Cmd, ConsoleApplication):
             page = Page(core=browser, data=data, uri=browser._response.geturl())
             browser = Browser(view=page.view)
 
+    @defaultcount(40)
     def do_ls(self, line):
         """
-        ls [-d] [PATH]
+        ls [-d] [-U] [PATH]
 
         List objects in current path.
         If an argument is given, list the specified path.
+        Use -U option to not sort results.
         """
-        if line.strip().partition(' ')[0] == '-d':
+        # TODO: real parsing of options
+        path = line.strip()
+        only = False
+        sort = True
+
+        if '-U' in line.strip().partition(' '):
+            path = line.strip().partition(' ')[-1]
+            sort = False
+
+        if '-d' in line.strip().partition(' '):
             path = None
-            only = line.strip().partition(' ')[2]
-        else:
-            path = line.strip()
-            only = False
+            only = line.strip().partition(' ')[-1]
+
 
         if path:
             # We have an argument, let's ch to the directory before the ls
@@ -958,6 +1009,10 @@ class ReplApplication(Cmd, ConsoleApplication):
         objects, collections = self._fetch_objects(objs=self.COLLECTION_OBJECTS)
 
         self.objects = []
+
+        if sort:
+            objects.sort(cmp=comp_object)
+            collections.sort(cmp=comp_object)
 
         self.start_format()
         for collection in collections:
@@ -998,25 +1053,26 @@ class ReplApplication(Cmd, ConsoleApplication):
         else:
             self.working_path.cd1(line)
 
-        collections = []
-        try:
-            for backend, res in self.do('get_collection', objs=self.COLLECTION_OBJECTS,
-                                                          split_path=self.working_path.get(),
-                                                          caps=ICapCollection):
-                if res:
-                    collections.append(res)
-        except CallErrors as errors:
-            self.bcall_errors_handler(errors, CollectionNotFound)
+            collections = []
+            try:
+                for backend, res in self.do('get_collection', objs=self.COLLECTION_OBJECTS,
+                                            split_path=self.working_path.get(),
+                                            caps=ICapCollection):
+                    if res:
+                        collections.append(res)
+            except CallErrors as errors:
+                self.bcall_errors_handler(errors, CollectionNotFound)
 
-        if len(collections):
-            # update the path from the collection if possible
-            if len(collections) == 1:
-                self.working_path.split_path = collections[0].split_path
-            self._change_prompt()
-        else:
-            print >>sys.stderr, u"Path: %s not found" % unicode(self.working_path)
-            self.working_path.restore()
-            return 1
+            if len(collections):
+                # update the path from the collection if possible
+                if len(collections) == 1:
+                    self.working_path.split_path = collections[0].split_path
+            else:
+                print >>sys.stderr, u"Path: %s not found" % unicode(self.working_path)
+                self.working_path.restore()
+                return 1
+
+        self._change_prompt()
 
     def _fetch_objects(self, objs):
         objects = []
@@ -1042,6 +1098,37 @@ class ReplApplication(Cmd, ConsoleApplication):
         """
         obj_collections = [obj for obj in self.objects if isinstance(obj, BaseCollection)]
         return obj_collections + self.collections
+
+    def obj_to_filename(self, obj, dest=None, default=None):
+        """
+        This method can be used to get a filename from an object, using a mask
+        filled by information of this object.
+
+        All patterns are braces-enclosed, and are name of available fields in
+        the object.
+
+        :param obj: object
+        :type obj: CapBaseObject
+        :param dest: dest given by user (default None)
+        :type dest: str
+        :param default: default file mask (if not given, this is '{id}-{title}.{ext}')
+        :type default: str
+        :rtype: str
+        """
+        if default is None:
+            default = '{id}-{title}.{ext}'
+        if dest is None:
+            dest = '.'
+        if os.path.isdir(dest):
+            dest = os.path.join(dest, default)
+
+        def repl(m):
+            field = m.group(1)
+            if hasattr(obj, field):
+                return re.sub('[?:/]', '-', '%s' % getattr(obj, field))
+            else:
+                return m.group(0)
+        return re.sub(r'\{(.+?)\}', repl, dest)
 
     # for cd & ls
     def complete_path(self, text, line, begidx, endidx):
@@ -1111,9 +1198,6 @@ class ReplApplication(Cmd, ConsoleApplication):
 
     def format(self, result, alias=None):
         fields = self.selected_fields
-        # Do not format objects if they not respect conditions
-        if self.condition and not self.condition.is_valid(result):
-            return
         if '$direct' in fields or '$full' in fields:
             fields = None
         try:

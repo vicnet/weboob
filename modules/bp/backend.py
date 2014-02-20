@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.bank import ICapBank
+from weboob.capabilities.bank import ICapBank, Account
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 
@@ -32,11 +32,11 @@ class BPBackend(BaseBackend, ICapBank):
     NAME = 'bp'
     MAINTAINER = u'Nicolas Duhamel'
     EMAIL = 'nicolas@jombi.fr'
-    VERSION = '0.h'
+    VERSION = '0.i'
     LICENSE = 'AGPLv3+'
-    DESCRIPTION = u'La Banque Postale French bank website'
-    CONFIG = BackendConfig(ValueBackendPassword('login',    label='Account ID', masked=False),
-                           ValueBackendPassword('password', label='Password', regexp='^(\d{6}|)$'))
+    DESCRIPTION = u'La Banque Postale'
+    CONFIG = BackendConfig(ValueBackendPassword('login',    label='Identifiant', masked=False),
+                           ValueBackendPassword('password', label='Mot de passe', regexp='^(\d{6}|)$'))
     BROWSER = BPBrowser
 
     def create_default_browser(self):
@@ -49,6 +49,8 @@ class BPBackend(BaseBackend, ICapBank):
         return self.browser.get_account(_id)
 
     def iter_history(self, account):
+        if account.type == Account.TYPE_MARKET:
+            raise NotImplementedError()
         for tr in self.browser.get_history(account):
             if not tr._coming:
                 yield tr

@@ -31,11 +31,11 @@ class PrixCarburantsBackend(BaseBackend, ICapPriceComparison):
     NAME = 'prixcarburants'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.h'
+    VERSION = '0.i'
     DESCRIPTION = 'French governement website to compare fuel prices'
     LICENSE = 'AGPLv3+'
-    CONFIG = BackendConfig(Value('zipcode',                 label='Zipcode', regexp='\d+'))
     BROWSER = PrixCarburantsBrowser
+    CONFIG = BackendConfig(Value('zipcode', label='Zipcode', regexp='\d+'))
 
     def search_products(self, pattern=None):
         with self.browser:
@@ -66,5 +66,4 @@ class PrixCarburantsBackend(BaseBackend, ICapPriceComparison):
     def fill_price(self, price, fields):
         return self.get_price(price)
 
-    OBJECTS = {Price: fill_price,
-              }
+    OBJECTS = {Price: fill_price, }

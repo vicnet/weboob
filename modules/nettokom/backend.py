@@ -20,7 +20,6 @@
 
 
 from weboob.capabilities.bill import ICapBill, Subscription, SubscriptionNotFound, Detail
-from weboob.capabilities.base import Currency
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 
@@ -34,7 +33,7 @@ class NettoKomBackend(BaseBackend, ICapBill):
     NAME = 'nettokom'
     MAINTAINER = u'Florent Fourcot'
     EMAIL = 'weboob@flo.fourcot.fr'
-    VERSION = '0.h'
+    VERSION = '0.i'
     LICENSE = 'AGPLv3+'
     DESCRIPTION = 'Nettokom website'
     CONFIG = BackendConfig(ValueBackendPassword('login',
@@ -80,5 +79,5 @@ class NettoKomBackend(BaseBackend, ICapBill):
         balance.id = "%s-balance" % subscription.id
         balance.price = subscription._balance
         balance.label = u"Balance %s" % subscription.id
-        balance.currency = Currency.CUR_EUR
+        balance.currency = 'EUR'
         return balance

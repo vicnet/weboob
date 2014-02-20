@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright(C) 2010-2011  Romain Bignon, Pierre Mazière
+# Copyright(C) 2010-2013  Romain Bignon, Pierre Mazière
 #
 # This file is part of weboob.
 #
@@ -33,15 +33,14 @@ __all__ = ['LCLBackend']
 
 class LCLBackend(BaseBackend, ICapBank):
     NAME = 'lcl'
-    MAINTAINER = u'Pierre Mazière'
-    EMAIL = 'pierre.maziere@gmx.com'
-    VERSION = '0.h'
-    DESCRIPTION = u'Le Crédit Lyonnais French bank website'
+    MAINTAINER = u'Romain Bignon'
+    EMAIL = 'romain@weboob.org'
+    VERSION = '0.i'
+    DESCRIPTION = u'LCL'
     LICENSE = 'AGPLv3+'
-    CONFIG = BackendConfig(ValueBackendPassword('login',    label='Account ID', masked=False),
-                           ValueBackendPassword('password', label='Password of account'),
-                           Value('agency',   label='Agency code (deprecated)', regexp='^(\d{3,4}|)$', default=''),
-                           Value('website', label='Website to use', default='par',
+    CONFIG = BackendConfig(ValueBackendPassword('login',    label='Identifiant', masked=False),
+                           ValueBackendPassword('password', label='Code personnel'),
+                           Value('website', label='Type de compte', default='par',
                                  choices={'par': 'Particuliers',
                                           'ent': 'Entreprises'}))
     BROWSER = LCLBrowser
@@ -54,8 +53,7 @@ class LCLBackend(BaseBackend, ICapBank):
                                        self.config['password'].get())
         else:
             self.BROWSER = LCLBrowser
-            return self.create_browser(self.config['agency'].get(),
-                                       self.config['login'].get(),
+            return self.create_browser(self.config['login'].get(),
                                        self.config['password'].get())
 
     def deinit(self):

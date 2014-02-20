@@ -57,6 +57,7 @@ def build_qt():
          'all',
          'PYUIC=%s%s' % (pyuic4, ' WIN32=1' if sys.platform == 'win32' else '')])
 
+
 def install_weboob():
     scripts = set(os.listdir('scripts'))
     packages = set(find_packages(exclude=['modules']))
@@ -109,7 +110,6 @@ def install_weboob():
             ('share/icons/hicolor/64x64/apps', glob.glob('icons/*')),
         ])
 
-
     # Do not put PyQt, it does not work properly.
     requirements = [
         'lxml',
@@ -124,10 +124,11 @@ def install_weboob():
     except ImportError:
         requirements.append('Pillow')
     else:
-        if 'PILcompat' not in Image.__file__:
-            requirements.append('PIL')
-        else:
+        # detect Pillow-only feature, or weird Debian stuff
+        if hasattr(Image, 'alpha_composite') or 'PILcompat' in Image.__file__:
             requirements.append('Pillow')
+        else:
+            requirements.append('PIL')
 
     if sys.version_info[0] > 2:
         print >>sys.stderr, 'Python 3 is not supported.'
@@ -141,7 +142,7 @@ def install_weboob():
 
     setup(
         name='weboob',
-        version='0.h',
+        version='0.i',
         description='Weboob, Web Outside Of Browsers',
         long_description=open('README').read(),
         author='Romain Bignon',
@@ -168,55 +169,12 @@ def install_weboob():
         install_requires=requirements,
     )
 
-def prepare_install_modules(func):
-    def inner(*args, **kwargs):
-        here = os.path.abspath(os.path.dirname(__file__))
-        try:
-            open(os.path.join(here, 'modules', '__init__.py'), 'w').close()
-            os.rename(os.path.join(here, 'MANIFEST.in'), os.path.join(here, 'MANIFEST.in.weboob'))
-            os.rename(os.path.join(here, 'MANIFEST.in.modules'), os.path.join(here, 'MANIFEST.in'))
-
-            return func(*args, **kwargs)
-        finally:
-            os.unlink(os.path.join(here, 'modules', '__init__.py'))
-            os.rename(os.path.join(here, 'MANIFEST.in'), os.path.join(here, 'MANIFEST.in.modules'))
-            os.rename(os.path.join(here, 'MANIFEST.in.weboob'), os.path.join(here, 'MANIFEST.in'))
-    return inner
-
-@prepare_install_modules
-def install_modules():
-    setup(
-        name='weboob-modules',
-        version='0.h',
-        description='Weboob modules',
-        long_description=open('README').read(),
-        author='Romain Bignon',
-        author_email='weboob@weboob.org',
-        maintainer='Romain Bignon',
-        maintainer_email='romain@weboob.org',
-        url='http://weboob.org/modules',
-        license='GNU AGPL 3',
-        classifiers=[
-            'Environment :: Console',
-            'Environment :: X11 Applications :: Qt',
-            'License :: OSI Approved :: GNU Affero General Public License v3',
-            'Programming Language :: Python :: 2.6',
-            'Programming Language :: Python :: 2.7',
-            'Programming Language :: Python',
-            'Topic :: Communications :: Email',
-            'Topic :: Internet :: WWW/HTTP',
-        ],
-        package_dir={'weboob_modules': 'modules'},
-        packages=['weboob_modules'],
-        include_package_data=True,
-    )
 
 class Options(object):
     hildon = False
-    qt = True
+    qt = False
     xdg = True
     deps = True
-    modules = False
 
 options = Options()
 
@@ -257,13 +215,6 @@ if '--nodeps' in args:
     options.deps = False
     args.remove('--nodeps')
 
-if '--modules' in args:
-    options.modules = True
-    args.remove('--modules')
-
 sys.argv = args
 
-if options.modules:
-    install_modules()
-else:
-    install_weboob()
+install_weboob()

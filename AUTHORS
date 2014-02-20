@@ -7,17 +7,18 @@ Romain Bignon <romain@weboob.org>
 
 Laurent Bachelier <laurent@bachelier.name>
         * Core team;
-        * Pastealacon, PasteBin, PayPal and RadioFrance modules maintainer.
+        * Citelis, Pastealacon, PasteBin, PayPal, RadioFrance and youtube
+          modules maintainer.
 
 Florent Fourcot <weboob@flo.fourcot.fr>
         * Release manager;
         * Champslibres, Freemobile, ING, LeclercMobile, Presseurop, Sachsen,
-          Nettokom, dresdenwetter and Taz modules maintainer;
+          Nettokom, dresdenwetter, colissimo, poivy and Taz modules maintainer;
         * BNPorc patches.
 
 Julien Hebert <juke@free.fr>
         * Developer of masstransit;
-        * Ecrans, Inrocks, LeFigaro, Minutes20 and Transilien modules
+        * Inrocks, LeFigaro, Minutes20 and Transilien modules
           maintainer.
 
 Noe Rubinstein <noe.rubinstein@gmail.com>
@@ -30,11 +31,16 @@ Julien Veyssier <julien.veyssier@aiur.fr>
           Attilasub, Opensubtitles, Tvsubtitle, Btmon, Imdb,
           Seeklyrics, Parolesmusique and Parolesmania modules maintainer.
 
+Benjamin Carton <carton_ben@yahoo.fr>
+        * adecco, apec, arte, cci, grooveshark, indeed, lolix, popolemploi and
+          vlille modules maintainer;
+        * handjoob application.
+
 Christophe Benz <christophe.benz@gmail.com>
         * Bouygues, INA, SFR and Youtube modules maintainer.
 
 Roger Philibert <roger.philibert@gmail.com>
-        * Ehentai, Izneo, OKC and Youjizz modules maintainer.
+        * Ehentai, Izneo, JacquieEtMichel, OKC and Youjizz modules maintainer.
 
 Nicolas Duhamel <nicolas@jombi.fr>
         * BP, CanalPlus and Orange modules maintainer.
@@ -46,13 +52,9 @@ François Revol <revol@free.fr>
         * Europarl, GDCVault and Vimeo modules maintainer.
         * Canaplus and qvideoob fixes
 
-Benjamin Carton <carton_ben@yahoo.fr>
-        * vlille, grooveshark, adecco, apec, lolix and popolemploi modules
-          maintainer.
-        * handjoob application.
-
 Pierre Mazière <pierre.maziere@gmx.com>
-        * LCL and RockRadio modules maintainer;
+        * RockRadio module maintainer;
+        * lcl ex-maintener;
         * BNPorc fixes.
 
 Xavier Guerrin <xavier@tuxfamily.org>
@@ -104,21 +106,39 @@ Johann Broudin <johann.broudin@6-8.fr>
 Cedric Defortis <cedric@aiur.fr>
         * MeteoFrance module maintainer.
 
+Vincent A. <dev@indigo.re>
+        * Quvi module maintainer.
+
+Matthieu Rakotojaona <matthieu.rakotojaona@gmail.com>
+        * Btdigg module maintainer.
+
 François D. <franek@chicour.net>
         * ArretsurImages module maintainer.
 
 Christophe Gouiran <bechris13250@gmail.com>
         * EDF module maintainer.
 
+Hervé Werner <dud225@hotmail.com>
+        * Velib module maintainer.
+
 Thomas Lecavelier <thomas-weboob@lecavelier.name>
         * Patches on radioob.
         * nihonnooto module maintainer.
+
+Clément Calmels <cboulte@gmail.com>
+        * Patches on NoLifeTV.
 
 Gabriel Serme <gabriel@serme.net>
         * Support of two-factor authentication for Boursorama.
 
 Jean-Philippe Dutrève <jdutreve@winancial.com>
         * Fixes on bank modules.
+
+Vincent Texier <vit@free.fr>
+        * Fixes on YouJizz and Dailymotion.
+
+John Morrow <caramdache@gmail.com>
+        * OFX formatter in boobank.
 
 Mathieu Lordon <mathieu.lordon@gmail.com>
         * Fixes on bank modules.
@@ -210,11 +230,23 @@ Philippe Fremy <phil@freehackers.org>
 Antoine <antoine.underlinux@orange.fr>
         * QVideoob fixes.
 
+Ryan Nowakowski <tubaman@fattuba.com>
+        * Import error.
+
 David Jeanneteau <david.jeanneteau@gmail.com>
         * Fix on ING and icon of ING.
 
 Juliette Stehlé <juliette.stehle@gmail.com>
         * Enable LDD and PEL accounts on Boursorama.
+
+Etienne Carriere <etienne.carriere@gmail.com>
+        * Fix on dailymotion
+
+Simon Murail <simurail@yahoo.fr>
+        * Contribution to bank capability.
+
+Alexandre Bonhomme <alexandre.bonhomme@etudiant.univ-lille1.fr>
+        * Fix and tests on several modules
 
 Discover how to contribute to this great software:
 http://weboob.org/How_to_contribute

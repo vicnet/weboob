@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from datetime import datetime
+from datetime import datetime, date
 
 from .base import IBaseCap, CapBaseObject, Field, DateField, FloatField, \
                   StringField, UserError
@@ -55,12 +55,16 @@ class Temperature(CapBaseObject):
         else:
             return u'%s°C' % int(round((self.value - 32.0) * 5.0 / 9.0))
 
+    def __repr__(self):
+        if self.value is not None and self.unit:
+            return u'%s %s' % (self.value, self.unit)
+
 
 class Forecast(CapBaseObject):
     """
     Weather forecast.
     """
-    date =      Field('Date for the forecast', datetime, basestring)
+    date =      Field('Date for the forecast', datetime, date, basestring)
     low =       Field('Low temperature', Temperature)
     high =      Field('High temperature', Temperature)
     text =      StringField('Comment on forecast')

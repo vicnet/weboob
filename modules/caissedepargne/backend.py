@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright(C) 2012 Romain Bignon
+# Copyright(C) 2012-2013 Romain Bignon
 #
 # This file is part of weboob.
 #
@@ -32,11 +32,11 @@ class CaisseEpargneBackend(BaseBackend, ICapBank):
     NAME = 'caissedepargne'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.h'
-    DESCRIPTION = u'Caisse d\'Épargne French bank website'
+    VERSION = '0.i'
+    DESCRIPTION = u'Caisse d\'Épargne'
     LICENSE = 'AGPLv3+'
-    CONFIG = BackendConfig(ValueBackendPassword('login',    label='Account ID', masked=False),
-                           ValueBackendPassword('password', label='Password', regexp='\d+'),
+    CONFIG = BackendConfig(ValueBackendPassword('login',    label='Identifiant client', masked=False),
+                           ValueBackendPassword('password', label='Code personnel', regexp='\d+'),
                            Value('nuser', label='User ID (optional)', default=''))
     BROWSER = CaisseEpargne
 

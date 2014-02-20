@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright(C) 2012 Romain Bignon
+# Copyright(C) 2012-2013 Romain Bignon
 #
 # This file is part of weboob.
 #
@@ -32,12 +32,12 @@ class BarclaysBackend(BaseBackend, ICapBank):
     NAME = 'barclays'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.h'
-    DESCRIPTION = u'Barclays French bank website'
+    VERSION = '0.i'
+    DESCRIPTION = u'Barclays'
     LICENSE = 'AGPLv3+'
-    CONFIG = BackendConfig(ValueBackendPassword('login',    label='Account ID', masked=False),
-                           ValueBackendPassword('password', label='Password'),
-                           ValueBackendPassword('secret',   label='Secret word'))
+    CONFIG = BackendConfig(ValueBackendPassword('login',    label=u"N° d'abonné", masked=False),
+                           ValueBackendPassword('password', label='Code confidentiel'),
+                           ValueBackendPassword('secret',   label='Mot secret'))
     BROWSER = Barclays
 
     def create_default_browser(self):

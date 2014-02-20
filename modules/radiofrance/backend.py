@@ -21,7 +21,9 @@
 
 from weboob.capabilities.base import NotLoaded
 from weboob.capabilities.video import ICapVideo
-from weboob.capabilities.radio import ICapRadio, Radio, Stream, Emission
+from weboob.capabilities.radio import ICapRadio, Radio
+from weboob.capabilities.audiostream import BaseAudioStream
+from weboob.tools.capabilities.streaminfo import StreamInfo
 from weboob.capabilities.collection import ICapCollection, CollectionNotFound, Collection
 from weboob.tools.backend import BaseBackend
 
@@ -35,7 +37,7 @@ class RadioFranceBackend(BaseBackend, ICapRadio, ICapCollection, ICapVideo):
     NAME = 'radiofrance'
     MAINTAINER = u'Laurent Bachelier'
     EMAIL = 'laurent@bachelier.name'
-    VERSION = '0.h'
+    VERSION = '0.i'
     DESCRIPTION = u'Radios of Radio France: Inter, Info, Bleu, Culture, Musique, FIP, Le Mouv\''
     LICENSE = 'AGPLv3+'
     BROWSER = RadioFranceBrowser
@@ -142,8 +144,13 @@ class RadioFranceBackend(BaseBackend, ICapRadio, ICapCollection, ICapVideo):
         # does not require it.
         self.fillobj(radio, ('current', ))
 
-        stream = Stream(0)
-        stream.title = u'128kbits/s' if hd else u'32kbits/s'
+        stream = BaseAudioStream(0)
+        if hd:
+            stream.bitrate=128
+        else:
+            stream.bitrate=32
+        stream.format=u'mp3'
+        stream.title = u'%s kbits/s' % (stream.bitrate)
         stream.url = url
         radio.streams = [stream]
         return radio
@@ -174,9 +181,9 @@ class RadioFranceBackend(BaseBackend, ICapRadio, ICapCollection, ICapVideo):
                 title = self.browser.get_current_rss(radio.id)
             if title:
                 if not radio.current or radio.current is NotLoaded:
-                    radio.current = Emission(0)
-                radio.current.title = title
-                radio.current.artist = artist
+                    radio.current = StreamInfo(0)
+                radio.current.what = title
+                radio.current.who = artist
         return radio
 
     # TODO

@@ -32,9 +32,9 @@ class PaypalBackend(BaseBackend, ICapBank):
     NAME = 'paypal'
     MAINTAINER = u'Laurent Bachelier'
     EMAIL = 'laurent@bachelier.name'
-    VERSION = '0.h'
+    VERSION = '0.i'
     LICENSE = 'AGPLv3+'
-    DESCRIPTION = u'PayPal money transfer website'
+    DESCRIPTION = u'PayPal'
     CONFIG = BackendConfig(ValueBackendPassword('login',      label='E-mail', masked=False),
                            ValueBackendPassword('password',   label='Password'))
     BROWSER = Paypal

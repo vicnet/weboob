@@ -19,6 +19,7 @@
 
 
 import re
+import subprocess
 from .ordereddict import OrderedDict
 from .misc import to_unicode
 
@@ -68,7 +69,7 @@ class Value(object):
         self.regexp = kwargs.get('regexp', None)
         self.choices = kwargs.get('choices', None)
         if isinstance(self.choices, (list, tuple)):
-            self.choices = dict(((v, v) for v in self.choices))
+            self.choices = OrderedDict(((v, v) for v in self.choices))
         self.tiny = kwargs.get('tiny', None)
         self.masked = kwargs.get('masked', False)
         self.required = kwargs.get('required', self.default is None)
@@ -123,6 +124,14 @@ class Value(object):
         """
         return self._value
 
+    def is_command(self, v):
+        """
+        Test if a value begin with ` and end with `
+        (`command` is used to call external programms)
+        """
+        return isinstance(v, basestring) and v.startswith(u'`') and v.endswith(u'`')
+
+
 
 class ValueBackendPassword(Value):
     _domain = None
@@ -135,6 +144,14 @@ class ValueBackendPassword(Value):
         Value.__init__(self, *args, **kwargs)
 
     def load(self, domain, password, callbacks):
+        if self.is_command(password):
+            cmd = password[1:-1]
+            try:
+                password = subprocess.check_output(cmd, shell=True)
+            except subprocess.CalledProcessError as e:
+                raise ValueError(u'The call to the external tool failed: %s' % e)
+            else:
+                password = password.partition('\n')[0].strip('\r\n\t')
         self.check_valid(password)
         self._domain = domain
         self._value = to_unicode(password)
@@ -147,6 +164,10 @@ class ValueBackendPassword(Value):
         return Value.check_valid(self, passwd)
 
     def set(self, passwd):
+        if self.is_command(passwd):
+            self._value = passwd
+            return
+
         self.check_valid(passwd)
         if passwd is None:
             # no change

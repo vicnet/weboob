@@ -22,6 +22,7 @@
 from copy import copy
 import getpass
 import logging
+import subprocess
 import sys
 import os
 import locale
@@ -34,8 +35,9 @@ from weboob.core.backendscfg import BackendAlreadyExists
 from weboob.core.modules import ModuleLoadError
 from weboob.core.repositories import ModuleInstallError
 from weboob.tools.browser import BrowserUnavailable, BrowserIncorrectPassword, BrowserForbidden
-from weboob.tools.value import Value, ValueBool, ValueFloat, ValueInt
+from weboob.tools.value import Value, ValueBool, ValueFloat, ValueInt, ValueBackendPassword
 from weboob.tools.misc import to_unicode
+from weboob.tools.ordereddict import OrderedDict
 
 from .base import BaseApplication, MoreResultsAvailable
 
@@ -345,13 +347,13 @@ class ConsoleApplication(BaseApplication):
                     continue
                 config[key].set(value)
             config.save(edit=edit)
-            print 'Backend "%s" successfully added.' % name
+            print 'Backend "%s" successfully %s.' % (name, 'edited' if edit else 'added')
             return name
         except BackendAlreadyExists:
             print >>sys.stderr, 'Backend "%s" already exists.' % name
             return 1
 
-    def ask(self, question, default=None, masked=False, regexp=None, choices=None, tiny=None):
+    def ask(self, question, default=None, masked=None, regexp=None, choices=None, tiny=None):
         """
         Ask a question to user.
 
@@ -366,15 +368,15 @@ class ConsoleApplication(BaseApplication):
 
         if isinstance(question, Value):
             v = copy(question)
-            if default:
+            if default is not None:
                 v.default = default
-            if masked:
+            if masked is not None:
                 v.masked = masked
-            if regexp:
+            if regexp is not None:
                 v.regexp = regexp
-            if choices:
+            if choices is not None:
                 v.choices = choices
-            if tiny:
+            if tiny is not None:
                 v.tiny = tiny
         else:
             if isinstance(default, bool):
@@ -391,6 +393,38 @@ class ConsoleApplication(BaseApplication):
         question = v.label
         if v.id:
             question = u'[%s] %s' % (v.id, question)
+
+        if isinstance(v, ValueBackendPassword):
+            choices = OrderedDict()
+            choices['c'] = 'Run an external tool during backend load'
+            if not v.noprompt:
+                choices['p'] = 'Prompt value when needed (do not store it)'
+            choices['s'] = 'Store value in config'
+
+            if v.is_command(v.default):
+                d = 'c'
+            elif v.default == '' and not v.noprompt:
+                d = 'p'
+            else:
+                d = 's'
+
+            r = self.ask('%s: How do you want to store it?' % question, choices=choices, tiny=True, default=d)
+            if r == 'p':
+                return ''
+            if r == 'c':
+                print 'Enter the shell command that will print the required value on the standard output'
+                if v.is_command(v.default):
+                    print ': %s' % v.default[1:-1]
+                else:
+                    d = None
+                while True:
+                    cmd = self.ask('')
+                    try:
+                        subprocess.check_output(cmd, shell=True)
+                    except subprocess.CalledProcessError as e:
+                        print '%s' % e
+                    else:
+                        return '`%s`' % cmd
 
         aliases = {}
         if isinstance(v, ValueBool):
@@ -413,11 +447,11 @@ class ConsoleApplication(BaseApplication):
                     print '%s%2d)%s %s' % (self.BOLD, n + 1, self.NC, value)
                     aliases[str(n + 1)] = key
                 question = u'%s (choose in list)' % question
-        elif default not in (None, '') and not v.masked:
-            question = u'%s [%s]' % (question, v.default)
-
         if v.masked:
             question = u'%s (hidden input)' % question
+
+        if not isinstance(v, ValueBool) and not v.tiny and v.default not in (None, ''):
+            question = u'%s [%s]' % (question, '*******' if v.masked else v.default)
 
         question += ': '
 
@@ -426,7 +460,7 @@ class ConsoleApplication(BaseApplication):
                 if sys.platform == 'win32':
                     line = getpass.getpass(str(question))
                 else:
-                    line = getpass.getpass(question)
+                    line = getpass.getpass(question.encode(sys.stdout.encoding or locale.getpreferredencoding()))
             else:
                 self.stdout.write(question.encode(sys.stdout.encoding or locale.getpreferredencoding()))
                 self.stdout.flush()
@@ -451,17 +485,24 @@ class ConsoleApplication(BaseApplication):
             else:
                 break
 
+        v.noprompt = True
         return v.get()
 
-    def acquire_input(self, content=None):
+    def acquire_input(self, content=None, editor_params=None):
         editor = os.getenv('EDITOR', 'vi')
         if sys.stdin.isatty() and editor:
             with NamedTemporaryFile() as f:
                 filename = f.name
                 if content is not None:
+                    if isinstance(content, unicode):
+                        content = content.encode(sys.stdin.encoding or locale.getpreferredencoding())
                     f.write(content)
                     f.flush()
-                os.system("%s %s" % (editor, filename))
+                try:
+                    params = editor_params[os.path.basename(editor)]
+                except (KeyError,TypeError):
+                    params = ''
+                os.system("%s %s %s" % (editor, params, filename))
                 f.seek(0)
                 text = f.read()
         else:
@@ -496,7 +537,7 @@ class ConsoleApplication(BaseApplication):
         elif isinstance(error, NotImplementedError):
             print >>sys.stderr, u'Error(%s): this feature is not supported yet by this backend.' % backend.name
             print >>sys.stderr, u'      %s   To help the maintainer of this backend implement this feature,' % (' ' * len(backend.name))
-            print >>sys.stderr, u'      %s   please contact: %s <%s>' % (' ' * len(backend.name), backend.MAINTAINER, backend.EMAIL)
+            print >>sys.stderr, u'      %s   please contact: %s <%s@issues.weboob.org>' % (' ' * len(backend.name), backend.MAINTAINER, backend.NAME)
         elif isinstance(error, UserError):
             print >>sys.stderr, u'Error(%s): %s' % (backend.name, to_unicode(error))
         elif isinstance(error, MoreResultsAvailable):

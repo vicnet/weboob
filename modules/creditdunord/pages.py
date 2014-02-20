@@ -79,6 +79,23 @@ class AccountsPage(CDNBasePage):
     COL_LABEL = 5
     COL_BALANCE = -1
 
+    TYPES = {'ASSURANCE VIE':       Account.TYPE_DEPOSIT,
+             'CARTE':               Account.TYPE_CARD,
+             'COMPTE COURANT':      Account.TYPE_CHECKING,
+             'COMPTE EPARGNE':      Account.TYPE_SAVINGS,
+             'COMPTE SUR LIVRET':   Account.TYPE_SAVINGS,
+             'LIVRET':              Account.TYPE_SAVINGS,
+             'P.E.A.':              Account.TYPE_MARKET,
+             'PEA':                 Account.TYPE_MARKET,
+            }
+
+    def get_account_type(self, label):
+        for pattern, actype in self.TYPES.iteritems():
+            if label.startswith(pattern):
+                return actype
+
+        return Account.TYPE_UNKNOWN
+
     def get_history_link(self):
         return self.parser.strip(self.get_from_js(",url: Ext.util.Format.htmlDecode('", "'"))
 
@@ -98,6 +115,8 @@ class AccountsPage(CDNBasePage):
             fp = StringIO(unicode(line[self.COL_LABEL]).encode(self.browser.ENCODING))
             a.label = self.parser.tocleanstring(self.parser.parse(fp, self.browser.ENCODING).xpath('//div[@class="libelleCompteTDB"]')[0])
             a.balance = Decimal(FrenchTransaction.clean_amount(line[self.COL_BALANCE]))
+            a.currency = a.get_currency(line[self.COL_BALANCE])
+            a.type = self.get_account_type(a.label)
             a._link = self.get_history_link()
             if line[self.COL_HISTORY] == 'true':
                 a._args = {'_eventId':         'clicDetailCompte',
@@ -127,18 +146,24 @@ class ProAccountsPage(AccountsPage):
     COL_ID = 0
     COL_BALANCE = 1
 
-    ARGS = ['Banque', 'Agence', 'classement', 'Serie', 'SSCompte', 'Devise', 'CodeDeviseCCB', 'LibelleCompte', 'IntituleCompte', 'Indiceclassement', 'IndiceCompte', 'NomClassement']
+    ARGS = ['Banque', 'Agence', 'Classement', 'Serie', 'SSCompte', 'Devise', 'CodeDeviseCCB', 'LibelleCompte', 'IntituleCompte', 'Indiceclassement', 'IndiceCompte', 'NomClassement']
 
     def params_from_js(self, text):
         l = []
         for sub in re.findall("'([^']*)'", text):
             l.append(sub)
 
-        url = '/vos-comptes/IPT/appmanager/transac/professionnels?_nfpb=true&_windowLabel=portletInstance_18&_pageLabel=page_synthese_v1' + '&_cdnCltUrl=' + "/transacClippe/" + quote(l.pop(0))
+        kind = self.group_dict['kind']
+        url = '/vos-comptes/IPT/appmanager/transac/' + kind + '?_nfpb=true&_windowLabel=portletInstance_18&_pageLabel=page_synthese_v1' + '&_cdnCltUrl=' + "/transacClippe/" + quote(l.pop(0))
         args = {}
+        for input in self.document.xpath('//form[@name="detail"]/input'):
+            args[input.attrib['name']] = input.attrib.get('value', '')
 
         for i, key in enumerate(self.ARGS):
             args[key] = unicode(l[self.ARGS.index(key)]).encode(self.browser.ENCODING)
+
+        args['PageDemandee'] = 1
+        args['PagePrecedente'] = 1
 
         return url, args
 
@@ -152,6 +177,7 @@ class ProAccountsPage(AccountsPage):
             a = Account()
             a.id = cols[self.COL_ID].xpath('.//span[@class="right-underline"]')[0].text.strip()
             a.label = unicode(cols[self.COL_ID].xpath('.//span[@class="left-underline"]')[0].text.strip())
+            a.type = self.get_account_type(a.label)
             balance = self.parser.tocleanstring(cols[self.COL_BALANCE])
             a.balance = Decimal(FrenchTransaction.clean_amount(balance))
             a.currency = a.get_currency(balance)
@@ -167,7 +193,7 @@ class Transaction(FrenchTransaction):
                                                             FrenchTransaction.TYPE_WITHDRAWAL),
                 (re.compile(r'^VIR(EMENT)?( INTERNET)?(\.| )?(DE)? (?P<text>.*)'),
                                                             FrenchTransaction.TYPE_TRANSFER),
-                (re.compile(r'^PRLV (DE )?(?P<text>.*?)( Motif :.*)?$'),
+                (re.compile(r'^PRLV (SEPA )?(DE )?(?P<text>.*?)( Motif :.*)?$'),
                                                             FrenchTransaction.TYPE_ORDER),
                 (re.compile(r'^CB (?P<text>.*) LE (?P<dd>\d{2})\.?(?P<mm>\d{2})$'),
                                                             FrenchTransaction.TYPE_CARD),
@@ -258,17 +284,11 @@ class TransactionsPage(CDNBasePage):
 
 class ProTransactionsPage(TransactionsPage):
     def get_next_args(self, args):
-        txt = self.get_from_js('myPage.setPiedPage(oNavSuivantPrec_1(', ')')
+        if len(self.document.xpath('//a[contains(text(), "Suivant")]')) > 0:
+            args['PageDemandee'] = int(args.get('PageDemandee', 1)) + 1
+            return args
 
-        if txt is None:
-            return None
-
-        l = txt.split(',')
-        if int(l[4]) <= 40:
-            return None
-
-        args['PageDemandee'] = int(args.get('PageDemandee', 1)) + 1
-        return args
+        return None
 
     def parse_transactions(self):
         transactions = {}

@@ -33,7 +33,7 @@ __all__ = ['LCLBrowser']
 class LCLBrowser(BaseBrowser):
     PROTOCOL = 'https'
     DOMAIN = 'particuliers.secure.lcl.fr'
-    CERTHASH = ['ddfafa91c3e4dba2e6730df723ab5559ae55db351307ea1190d09bd025f74cce', '430814d3713cf2556e74749335e9d7ad8bb2a9350a1969ee539d1e9e9492a59a']
+    CERTHASH = ['ddfafa91c3e4dba2e6730df723ab5559ae55db351307ea1190d09bd025f74cce', '430814d3713cf2556e74749335e9d7ad8bb2a9350a1969ee539d1e9e9492a59a', 'ee395a71a777286091345a9ae55df699cf830bbc218faf71f08ce198d30543a3']
     ENCODING = 'utf-8'
     USER_AGENT = BaseBrowser.USER_AGENTS['wget']
     PAGES = {
@@ -41,6 +41,8 @@ class LCLBrowser(BaseBrowser):
         'https://particuliers.secure.lcl.fr/outil/UAUT\?from=.*': LoginPage,
         'https://particuliers.secure.lcl.fr/outil/UAUT/Accueil/preRoutageLogin': LoginPage,
         'https://particuliers.secure.lcl.fr//outil/UAUT/Contract/routing': LoginPage,
+        'https://particuliers.secure.lcl.fr/outil/UWER/Accueil/majicER': LoginPage,
+        'https://particuliers.secure.lcl.fr/outil/UWER/Enregistrement/forwardAcc': LoginPage,
         'https://particuliers.secure.lcl.fr/outil/UAUT/Contrat/choixContrat.*': ContractsPage,
         'https://particuliers.secure.lcl.fr/outil/UAUT/Contract/getContract.*': ContractsPage,
         'https://particuliers.secure.lcl.fr/outil/UAUT/Contract/selectContracts.*': ContractsPage,
@@ -51,10 +53,6 @@ class LCLBrowser(BaseBrowser):
         'https://particuliers.secure.lcl.fr/outil/UAUT/Contrat/selectionnerContrat.*': SkipPage,
         'https://particuliers.secure.lcl.fr/index.html': SkipPage
         }
-
-    def __init__(self, agency, *args, **kwargs):
-        self.agency = agency
-        BaseBrowser.__init__(self, *args, **kwargs)
 
     def is_logged(self):
         return not self.is_on_page(LoginPage)
@@ -69,7 +67,7 @@ class LCLBrowser(BaseBrowser):
                           % (self.PROTOCOL, self.DOMAIN),
                           no_login=True)
 
-        if not self.page.login(self.username, self.password, self.agency) or \
+        if not self.page.login(self.username, self.password) or \
            (self.is_on_page(LoginPage) and self.page.is_error()) :
             raise BrowserIncorrectPassword("invalid login/password.\nIf you did not change anything, be sure to check for password renewal request\non the original web site.\nAutomatic renewal will be implemented later.")
         self.location('%s://%s/outil/UWSP/Synthese'

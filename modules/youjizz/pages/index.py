@@ -22,7 +22,7 @@ import datetime
 import re
 
 from weboob.tools.browser import BasePage, BrokenPageError
-from weboob.tools.capabilities.thumbnail import Thumbnail
+from weboob.capabilities.image import BaseImage
 from weboob.tools.misc import to_unicode
 
 from ..video import YoujizzVideo
@@ -41,20 +41,25 @@ class IndexPage(BasePage):
 
             video = YoujizzVideo(_id)
 
-            video.thumbnail = Thumbnail(unicode(span.find('.//img').attrib['src']))
+            video.thumbnail = BaseImage(span.find('.//img').attrib['data-original'])
+            video.thumbnail.url = video.thumbnail.id
 
             title_el = self.parser.select(span, 'span#title1', 1)
             video.title = to_unicode(title_el.text.strip())
 
             time_span = self.parser.select(span, 'span.thumbtime span', 1)
             time_txt = time_span.text.strip().replace(';', ':')
-            if time_txt == 'N/A':
-                minutes, seconds = 0, 0
-            elif ':' in time_txt:
-                minutes, seconds = (int(v) for v in time_txt.split(':'))
-            else:
+            hours, minutes, seconds = 0, 0, 0
+            if ':' in time_txt:
+                t = time_txt.split(':')
+                t.reverse()
+                seconds = int(t[0])
+                minutes = int(t[1])
+                if len(t) == 3:
+                    hours = int(t[2])
+            elif time_txt != 'N/A':
                 raise BrokenPageError('Unable to parse the video duration: %s' % time_txt)
 
-            video.duration = datetime.timedelta(minutes=minutes, seconds=seconds)
+            video.duration = datetime.timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
             yield video

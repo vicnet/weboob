@@ -30,7 +30,7 @@ class GenericNewspaperBackend(BaseBackend, ICapMessages):
     """
     MAINTAINER = u'Julien Hebert'
     EMAIL = 'juke@free.fr'
-    VERSION = '0.h'
+    VERSION = '0.i'
     LICENSE = 'AGPLv3+'
     STORAGE = {'seen': {}}
     RSS_FEED = None
@@ -76,7 +76,7 @@ class GenericNewspaperBackend(BaseBackend, ICapMessages):
             date=thread.date,
             parent=None,
             content=content.body,
-            signature='URL: %s' % content.url,
+            signature='<a href="%s">URL</a> \n' % content.url,
             flags=flags,
             children=[])
         return thread

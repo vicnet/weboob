@@ -49,15 +49,15 @@ class CmbBackend(BaseBackend, ICapBank):
     NAME = 'cmb'
     MAINTAINER = u'Johann Broudin'
     EMAIL = 'Johann.Broudin@6-8.fr'
-    VERSION = '0.h'
+    VERSION = '0.i'
     LICENSE = 'AGPLv3+'
     AUTH_CERT = os.path.dirname(__file__)
     AUTH_CERT += '/Verisign_Class_3_Public_Primary_Certification_Authority.pem'
     CERTHASH = '684d79eb02f59497b5a9c5dcc4c26db1ee637db12f29d703fdf6a80aafef892d'
-    DESCRIPTION = u'Crédit Mutuel de Bretagne French bank website'
+    DESCRIPTION = u'Crédit Mutuel de Bretagne'
     CONFIG = BackendConfig(
-            ValueBackendPassword('login', label='Account ID', masked=False),
-            ValueBackendPassword('password', label='Password', masked=True),
+            ValueBackendPassword('login', label='Identifiant', masked=False),
+            ValueBackendPassword('password', label='Mot de passe', masked=True),
             ValueBool('no_check', label='SSL Check ?', default=True))
     LABEL_PATTERNS = [
             (   # card
@@ -177,8 +177,8 @@ class CmbBackend(BaseBackend, ICapBank):
             else:
                 raise BrokenPageError()
 
-        for tr in table[1].getiterator('tr'):
-            if tr.get('class') != 'LnTit' and tr.get('class') != 'LnTot':
+        for tr in tree.xpath('/html/body//table[contains(@class, "Tb")]/tr'):
+            if tr.get('class', None) not in ('LnTit', 'LnTot', 'LnMnTiers', None):
                 account = Account()
                 td = tr.xpath('td')
 

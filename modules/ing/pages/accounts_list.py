@@ -23,8 +23,7 @@ from datetime import date, timedelta
 import re
 import hashlib
 
-from weboob.capabilities.base import Currency
-from weboob.capabilities.bank import Account, Transaction
+from weboob.capabilities.bank import Account
 from weboob.capabilities.base import NotAvailable
 from weboob.tools.browser import BasePage
 from weboob.tools.capabilities.bank.transactions import FrenchTransaction
@@ -35,9 +34,11 @@ __all__ = ['AccountsList']
 
 class Transaction(FrenchTransaction):
     PATTERNS = [(re.compile(u'^retrait dab (?P<dd>\d{2})/(?P<mm>\d{2})/(?P<yy>\d{4}) (?P<text>.*)'), FrenchTransaction.TYPE_WITHDRAWAL),
-                (re.compile(u'^carte (?P<dd>\d{2})/(?P<mm>\d{2})/(?P<yy>\d{4}) (?P<text>.*)'), Transaction.TYPE_CARD),
-                (re.compile(u'^virement ((sepa emis vers|emis vers|recu|emis)?) (?P<text>.*)'), Transaction.TYPE_TRANSFER),
-                (re.compile(u'^prelevement (?P<text>.*)'), Transaction.TYPE_ORDER),
+                (re.compile(u'^carte (?P<dd>\d{2})/(?P<mm>\d{2})/(?P<yy>\d{4}) (?P<text>.*)'), FrenchTransaction.TYPE_CARD),
+                (re.compile(u'^virement (sepa )?(emis vers|recu|emis)? (?P<text>.*)'), FrenchTransaction.TYPE_TRANSFER),
+                (re.compile(u'^cheque (?P<text>.*)'), FrenchTransaction.TYPE_CHECK),
+                (re.compile(u'^prelevement (?P<text>.*)'), FrenchTransaction.TYPE_ORDER),
+                (re.compile(u'^prélèvement sepa en faveur de (?P<text>.*)'), FrenchTransaction.TYPE_ORDER),
                 ]
 
 
@@ -52,13 +53,13 @@ class AccountsList(BasePage):
     catvalue = {u'virt': u"Virement", u'autre': u"Autre",
             u'plvt': u'Prélèvement', u'cb_ret': u"Carte retrait",
             u'cb_ach': u'Carte achat', u'chq': u'Chèque',
-            u'frais': u'Frais bancaire'}
+            u'frais': u'Frais bancaire', u'sepaplvt': u'Prélèvement'}
 
     def get_list(self):
         # TODO: no idea abount how proxy account are displayed
         for a in self.document.xpath('//a[@class="mainclic"]'):
             account = Account()
-            account.currency = Currency.CUR_EUR
+            account.currency = 'EUR'
             account.id = unicode(a.find('span[@class="account-number"]').text)
             account._id = account.id
             account.label = unicode(a.find('span[@class="title"]').text)
@@ -108,7 +109,7 @@ class AccountsList(BasePage):
                 textdate = textdate.replace(' ', '')
                 textdate = textdate.replace(frenchmonth, '/%s/' %month)
             # We use lower for compatibility with old website
-            textraw = table.find('.//td[@class="lbl"]').text_content().strip().lower()
+            textraw = self.parser.tocleanstring(table.find('.//td[@class="lbl"]')).lower()
             # The id will be rewrite
             op = Transaction(1)
             amount = op.clean_amount(table.xpath('.//td[starts-with(@class, "amount")]')[0].text_content())
@@ -116,7 +117,7 @@ class AccountsList(BasePage):
                     + amount.encode('utf-8')).hexdigest()
             op.id = id
             op.parse(date = date(*reversed([int(x) for x in textdate.split('/')])),
-                    raw = textraw)
+                     raw = textraw)
             category = table.find('.//td[@class="picto"]/span')
             category = unicode(category.attrib['class'].split('-')[0].lower())
             try:

@@ -33,7 +33,7 @@ class LolixBackend(BaseBackend, ICapJob):
     DESCRIPTION = u'Lolix French free software employment website'
     MAINTAINER = u'Bezleputh'
     EMAIL = 'carton_ben@yahoo.fr'
-    VERSION = '0.h'
+    VERSION = '0.i'
 
     BROWSER = LolixBrowser
 
@@ -136,6 +136,11 @@ class LolixBackend(BaseBackend, ICapJob):
                            Value('poste', label=u'Poste', choices=poste_choices),
                            Value('contrat', label=u'Contrat', choices=contrat_choices),
                            Value('limit_date', label=u'Date limite', choices=limit_date_choices))
+
+    def search_job(self, pattern=None):
+        with self.browser:
+            for job_advert in self.browser.advanced_search_job(pattern=pattern):
+                yield job_advert
 
     def advanced_search_job(self):
         for advert in self.browser.advanced_search_job(region=self.config['region'].get(),
