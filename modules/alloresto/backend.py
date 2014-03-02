@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright(C) 2013 Romain Bignon
+# Copyright(C) 2014 Romain Bignon
 #
 # This file is part of weboob.
 #
@@ -23,22 +23,22 @@ from weboob.capabilities.bank import ICapBank, AccountNotFound
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 
-from .browser import AmericanExpressBrowser
+from .browser import AlloRestoBrowser
 
 
-__all__ = ['AmericanExpressBackend']
+__all__ = ['AlloRestoBackend']
 
 
-class AmericanExpressBackend(BaseBackend, ICapBank):
-    NAME = 'americanexpress'
+class AlloRestoBackend(BaseBackend, ICapBank):
+    NAME = 'alloresto'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
     VERSION = '0.i'
-    DESCRIPTION = u'American Express'
+    DESCRIPTION = u'Allo Resto'
     LICENSE = 'AGPLv3+'
-    CONFIG = BackendConfig(ValueBackendPassword('login',    label='Code utilisateur', masked=False),
+    CONFIG = BackendConfig(ValueBackendPassword('login',    label='Identifiant', masked=False),
                            ValueBackendPassword('password', label='Mot de passe'))
-    BROWSER = AmericanExpressBrowser
+    BROWSER = AlloRestoBrowser
 
     def create_default_browser(self):
         return self.create_browser(self.config['login'].get(),
@@ -60,7 +60,9 @@ class AmericanExpressBackend(BaseBackend, ICapBank):
 
     def iter_history(self, account):
         with self.browser:
-            transactions = list(self.browser.get_history(account))
-            transactions.sort(key=lambda tr: tr.rdate, reverse=True)
-            return transactions
+            return self.browser.get_history(account)
+
+    def iter_coming(self, account):
+        with self.browser:
+            return self.browser.get_coming(account)
 
