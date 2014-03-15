@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-
-# Copyright(C) 2010-2011 Roger Philibert
+# Copyright(C) 2014 Laurent Bachelier
 #
 # This file is part of weboob.
 #
@@ -17,19 +16,21 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-
-from weboob.capabilities.video import BaseVideo
-
-
-__all__ = ['YoujizzVideo']
+import requests.cookies
+import cookielib
 
 
-class YoujizzVideo(BaseVideo):
-    def __init__(self, *args, **kwargs):
-        BaseVideo.__init__(self, *args, **kwargs)
-        self.nsfw = True
-        self.ext = u'flv'
-
+class WeboobCookieJar(requests.cookies.RequestsCookieJar):
     @classmethod
-    def id2url(cls, _id):
-        return 'http://www.youjizz.com/videos/%s.html' % _id
+    def from_cookiejar(klass, cj):
+        """
+        Create a WeboobCookieJar from another CookieJar instance.
+        """
+        return requests.cookies.merge_cookies(klass(), cj)
+
+    def export(self, filename):
+        """
+        Export all cookies to a file, regardless of expiration, etc.
+        """
+        cj = requests.cookies.merge_cookies(cookielib.LWPCookieJar(), self)
+        cj.save(filename, ignore_discard=True, ignore_expires=True)

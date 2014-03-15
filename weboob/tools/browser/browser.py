@@ -40,7 +40,6 @@ import hashlib
 import time
 import urllib
 import urllib2
-from urlparse import urlsplit
 import mimetypes
 from contextlib import closing
 from gzip import GzipFile
@@ -223,15 +222,8 @@ class StandardBrowser(mechanize.Browser):
 
         # Use a proxy
         self.proxy = proxy
-        if proxy:
-            proto = 'http'
-            if '://' in proxy:
-                v = urlsplit(proxy)
-                proto = v.scheme
-                domain = v.netloc
-            else:
-                domain = proxy
-            self.set_proxies({proto: domain})
+        if proxy is not None:
+            self.set_proxies(proxy)
 
         # Share cookies with firefox
         if firefox_cookies and HAVE_COOKIES:
@@ -481,7 +473,7 @@ class BaseBrowser(StandardBrowser):
                     does not keep history
     :type history: object
     :param proxy: proxy URL to use
-    :type proxy: str
+    :type proxy: dictionnary
     :param logger: logger to use for logging
     :type logger: :class:`logging.Logger`
     :param factory: mechanize factory. None to use Mechanize's default

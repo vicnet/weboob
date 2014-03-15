@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright(C) 2013 Bezleputh
+# Copyright(C) 2012 Laurent Bachelier
 #
 # This file is part of weboob.
 #
@@ -17,16 +17,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.calendar import BaseCalendarEvent, TRANSP, STATUS, CATEGORIES
+from .browser import BaseBrowser, DomainBrowser, Wget, Firefox, UrlNotAllowed
+from .page import PagesBrowser, BasePage, URL, HTMLPage, LoginBrowser, need_login
 
 
-class HybrideCalendarEvent(BaseCalendarEvent):
-
-    def __init__(self):
-        BaseCalendarEvent.__init__(self)
-        self.city = u'Lille'
-        self.location = u'18 rue Gosselet'
-        self.sequence = 1
-        self.transp = TRANSP.TRANSPARENT
-        self.status = STATUS.CONFIRMED
-        self.category = CATEGORIES.CINE
+__all__ = ['BaseBrowser', 'DomainBrowser', 'Wget', 'Firefox', 'UrlNotAllowed',
+           'PagesBrowser', 'BasePage', 'URL', 'HTMLPage', 'LoginBrowser', 'need_login']
