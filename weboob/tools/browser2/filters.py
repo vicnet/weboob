@@ -19,19 +19,60 @@
 
 from __future__ import absolute_import
 
-from decimal import Decimal
+from dateutil.parser import parse as parse_date
+import datetime
+from decimal import Decimal, InvalidOperation
 import re
+import lxml.html as html
+
+from weboob.tools.misc import html2text
+from weboob.capabilities.base import empty
 
 
 _NO_DEFAULT = object()
 
 
+class ParseError(Exception):
+    pass
+
+
+class FilterError(ParseError):
+    pass
+
+
+class XPathNotFound(FilterError):
+    pass
+
+
+class ColumnNotFound(FilterError):
+    pass
+
+
+class AttributeNotFound(FilterError):
+    pass
+
+
+class RegexpError(FilterError):
+    pass
+
+
+class ItemNotFound(FilterError):
+    pass
+
+
 class _Filter(object):
     _creation_counter = 0
 
-    def __init__(self):
+    def __init__(self, default=_NO_DEFAULT):
+        self.default = default
         self._creation_counter = _Filter._creation_counter
         _Filter._creation_counter += 1
+
+    def default_or_raise(self, exception):
+        if self.default is not _NO_DEFAULT:
+            return self.default
+        else:
+            raise exception
 
 
 class Filter(_Filter):
@@ -48,25 +89,27 @@ class Filter(_Filter):
     Decimal('229.90')
     """
 
-    def __init__(self, selector=None):
-        super(Filter, self).__init__()
+    def __init__(self, selector=None, default=_NO_DEFAULT):
+        super(Filter, self).__init__(default=default)
         self.selector = selector
 
-    def __call__(self, item):
-        if isinstance(self.selector, basestring):
-            value = item.xpath(self.selector)
-        elif callable(self.selector):
-            value = self.selector(item)
+    @classmethod
+    def select(cls, selector, item):
+        if isinstance(selector, basestring):
+            return item.xpath(selector)
+        elif callable(selector):
+            return selector(item)
         else:
-            value = self.selector
+            return selector
 
-        return self.filter(value)
+    def __call__(self, item):
+        return self.filter(self.select(self.selector, item))
 
     def filter(self, value):
         """
         This method have to be overrided by children classes.
         """
-        return value
+        raise NotImplementedError()
 
 
 class Env(_Filter):
@@ -82,6 +125,7 @@ class Env(_Filter):
 
     def __call__(self, item):
         return item.env[self.name]
+
 
 class TableCell(_Filter):
     """
@@ -103,9 +147,8 @@ class TableCell(_Filter):
     """
 
     def __init__(self, *names, **kwargs):
-        super(TableCell, self).__init__()
+        super(TableCell, self).__init__(**kwargs)
         self.names = names
-        self.default = kwargs.pop('default', _NO_DEFAULT)
 
     def __call__(self, item):
         for name in self.names:
@@ -113,56 +156,112 @@ class TableCell(_Filter):
             if idx is not None:
                 return item.xpath('./td[%s]' % (idx + 1))
 
-        if self.default is not _NO_DEFAULT:
-            return self.default
-        raise KeyError('Unable to find column %s' % ' or '.join(self.names))
+        return self.default_or_raise(ColumnNotFound('Unable to find column %s' % ' or '.join(self.names)))
+
+class CleanHTML(Filter):
+    def filter(self, txt):
+        return html2text(html.tostring(txt[0], encoding=unicode))
 
 class CleanText(Filter):
     """
     Get a cleaned text from an element.
 
-    It replaces all tabs and multiple spaces to one space and strip the result
+    It first replaces all tabs and multiple spaces to one space and strip the result
     string.
+    Second, it replaces all symbols given in second argument.
     """
+    def __init__(self, selector, symbols='', replace=[], childs=True, **kwargs):
+        super(CleanText, self).__init__(selector, **kwargs)
+        self.symbols = symbols
+        self.toreplace = replace
+        self.childs = childs
+
     def filter(self, txt):
         if isinstance(txt, (tuple,list)):
-            txt = ' '.join(map(self.clean, txt))
+            txt = ' '.join([self.clean(item, childs=self.childs) for item in txt])
 
-        return self.clean(txt)
+        txt = self.clean(txt, childs=self.childs)
+        txt = self.remove(txt, self.symbols)
+        return self.replace(txt, self.toreplace)
 
     @classmethod
-    def clean(self, txt):
+    def clean(cls, txt, childs=True):
         if not isinstance(txt, basestring):
-            txt = [t.strip() for t in txt.itertext()]
+            if childs:
+                txt = [t.strip() for t in txt.itertext()]
+            else:
+                txt = [txt.text.strip()]
             txt = u' '.join(txt)                 # 'foo   bar'
-        txt = re.sub(u'[\s\xa0\t]+', u' ', txt)   # 'foo bar'
+        txt = re.sub(u'[\\s\xa0\t]+', u' ', txt)   # 'foo bar'
         return txt.strip()
+
+    @classmethod
+    def remove(cls, txt, symbols):
+        for symbol in symbols:
+            txt = txt.replace(symbol, '')
+        return txt.strip()
+
+    @classmethod
+    def replace(cls, txt, replace):
+        for before, after in replace:
+            txt = txt.replace(before, after)
+        return txt
+
+
+class Lower(CleanText):
+    def filter(self, txt):
+        txt = super(Lower, self).filter(txt)
+        return txt.lower()
+
 
 class CleanDecimal(CleanText):
     """
     Get a cleaned Decimal value from an element.
     """
+    def __init__(self, selector, replace_dots=True, default=_NO_DEFAULT):
+        super(CleanDecimal, self).__init__(selector, default=default)
+        self.replace_dots = replace_dots
+
     def filter(self, text):
         text = super(CleanDecimal, self).filter(text)
-        text = text.replace('.','').replace(',','.')
-        return Decimal(re.sub(u'[^\d\-\.]', '', text))
+        if self.replace_dots:
+            text = text.replace('.','').replace(',','.')
+        try:
+            return Decimal(re.sub(ur'[^\d\-\.]', '', text))
+        except InvalidOperation as e:
+            return self.default_or_raise(e)
 
-class Link(Filter):
+
+class Attr(Filter):
+    def __init__(self, selector, attr, default=_NO_DEFAULT):
+        super(Attr, self).__init__(selector, default=default)
+        self.attr = attr
+
+    def filter(self, el):
+        try:
+            return u'%s' % el[0].attrib[self.attr]
+        except IndexError:
+            return self.default_or_raise(XPathNotFound('Unable to find link %s' % self.selector))
+        except KeyError:
+            return self.default_or_raise(AttributeNotFound('Link %s does not has attribute %s' % (el[0], self.attr)))
+
+
+class Link(Attr):
     """
     Get the link uri of an element.
 
     If the <a> tag is not found, an exception IndexError is raised.
     """
-    def filter(self, el):
-        return el[0].attrib.get('href', '')
+    def __init__(self, selector, default=_NO_DEFAULT):
+        super(Link, self).__init__(selector, 'href', default=default)
 
 
-class Attr(_Filter):
+class Field(_Filter):
     """
     Get the attribute of object.
     """
     def __init__(self, name):
-        super(Attr, self).__init__()
+        super(Field, self).__init__()
         self.name = name
 
     def __call__(self, item):
@@ -170,7 +269,7 @@ class Attr(_Filter):
 
 
 class Regexp(Filter):
-    """
+    r"""
     Apply a regex.
 
     >>> from lxml.html import etree
@@ -179,11 +278,10 @@ class Regexp(Filter):
     u'1988-08-13'
     """
     def __init__(self, selector, pattern, template=None, flags=0, default=_NO_DEFAULT):
-        super(Regexp, self).__init__(selector)
+        super(Regexp, self).__init__(selector, default=default)
         self.pattern = pattern
         self.regex = re.compile(pattern, flags)
         self.template = template
-        self.default = default
 
     def filter(self, txt):
         if isinstance(txt, (tuple,list)):
@@ -191,12 +289,111 @@ class Regexp(Filter):
 
         mobj = self.regex.search(txt)
         if not mobj:
-            if self.default is not _NO_DEFAULT:
-                return self.default
-            else:
-                raise KeyError('Unable to match %s' % self.pattern)
+            return self.default_or_raise(RegexpError('Unable to match %s in %r' % (self.pattern, txt)))
 
         if self.template is None:
             return next(g for g in mobj.groups() if g is not None)
         else:
             return mobj.expand(self.template)
+
+
+class Map(Filter):
+    def __init__(self, selector, map_dict, default=_NO_DEFAULT):
+        super(Map, self).__init__(selector, default=default)
+        self.map_dict = map_dict
+
+    def filter(self, txt):
+        try:
+            return self.map_dict[txt]
+        except KeyError:
+            return self.default_or_raise(ItemNotFound('Unable to handle %r on %r' % (txt, self.map_dict)))
+
+
+class DateTime(Filter):
+    def __init__(self, selector, default=_NO_DEFAULT, dayfirst=False):
+        super(DateTime, self).__init__(selector, default=default)
+        self.dayfirst = dayfirst
+
+    def filter(self, txt):
+        if empty(txt):
+            return txt
+        try:
+            return parse_date(txt, dayfirst=self.dayfirst)
+        except ValueError as e:
+            return self.default_or_raise(ParseError('Unable to parse %r: %s' % (txt, e)))
+
+
+class Date(DateTime):
+    def __init__(self, selector, default=_NO_DEFAULT, dayfirst=False):
+        super(Date, self).__init__(selector, default=default, dayfirst=dayfirst)
+
+    def filter(self, txt):
+        datetime = super(Date, self).filter(txt)
+        if datetime is not None:
+            return datetime.date()
+
+class Time(Filter):
+    klass = datetime.time
+    regexp = re.compile(ur'(?P<hh>\d+):?(?P<mm>\d+)(:(?P<ss>\d+))?')
+    kwargs = {'hour': 'hh', 'minute': 'mm', 'second': 'ss'}
+
+    def __init__(self, selector, default=_NO_DEFAULT):
+        super(Time, self).__init__(selector, default=default)
+
+    def filter(self, txt):
+        m = self.regexp.search(txt)
+        if m:
+            kwargs = {}
+            for key, index in self.kwargs.iteritems():
+                kwargs[key] = int(m.groupdict()[index] or 0)
+            return self.klass(**kwargs)
+
+        return self.default_or_raise(ParseError('Unable to find time in %r' % txt))
+
+
+class Duration(Time):
+    klass = datetime.timedelta
+    regexp = re.compile(ur'((?P<hh>\d+)[:;])?(?P<mm>\d+)[;:](?P<ss>\d+)')
+    kwargs = {'hours': 'hh', 'minutes': 'mm', 'seconds': 'ss'}
+
+
+class MultiFilter(Filter):
+    def __init__(self, *args):
+        super(MultiFilter, self).__init__(args)
+
+    def __call__(self, item):
+        values = [self.select(selector, item) for selector in self.selector]
+        return self.filter(tuple(values))
+
+    def filter(self, values):
+        raise NotImplementedError()
+
+
+class CombineDate(MultiFilter):
+    def __init__(self, date, time):
+        super(CombineDate, self).__init__(date, time)
+
+    def filter(self, values):
+        return datetime.datetime.combine(values[0], values[1])
+
+
+class Format(MultiFilter):
+    def __init__(self, fmt, *args):
+        super(Format, self).__init__(*args)
+        self.fmt = fmt
+
+    def filter(self, values):
+        return self.fmt % values
+
+
+class Join(Filter):
+    def __init__(self, pattern, selector):
+        super(Join, self).__init__(selector)
+        self.pattern = pattern
+
+    def filter(self, el):
+        res = u''
+        for li in el:
+            res += self.pattern % CleanText.clean(li)
+
+        return res

@@ -23,17 +23,13 @@ from decimal import Decimal
 import re
 from dateutil.relativedelta import relativedelta
 
-from weboob.tools.browser2.page import HTMLPage, method, ListElement, ItemElement, SkipItem, FormNotFound
-from weboob.tools.browser2.filters import Filter, Env, CleanText, CleanDecimal, Link, Attr
+from weboob.tools.browser2.page import HTMLPage, method, ListElement, ItemElement, SkipItem, FormNotFound, LoggedPage
+from weboob.tools.browser2.filters import Filter, Env, CleanText, CleanDecimal, Link, Field, TableCell
 from weboob.tools.browser import  BrowserIncorrectPassword
 from weboob.capabilities import NotAvailable
 from weboob.capabilities.bank import Account
 from weboob.tools.capabilities.bank.transactions import FrenchTransaction
 from weboob.tools.date import parse_french_date
-
-
-class LoggedPage(object):
-    logged = True
 
 
 class LoginPage(HTMLPage):
@@ -47,6 +43,12 @@ class LoginPage(HTMLPage):
 class LoginErrorPage(HTMLPage):
     pass
 
+
+class EmptyPage(LoggedPage, HTMLPage):
+    pass
+
+class UserSpacePage(LoggedPage, HTMLPage):
+    pass
 
 class ChangePasswordPage(LoggedPage, HTMLPage):
     def on_load(self):
@@ -95,6 +97,7 @@ class AccountsPage(LoggedPage, HTMLPage):
                     for pattern, actype in AccountsPage.TYPES.iteritems():
                         if label.startswith(pattern):
                             return actype
+                    return Account.TYPE_UNKNOWN
 
             obj_id = Env('id')
             obj_label = Label(CleanText('./td[1]/a'))
@@ -103,7 +106,7 @@ class AccountsPage(LoggedPage, HTMLPage):
             obj_currency = FrenchTransaction.Currency('./td[2] | ./td[3]')
             obj__link_id = Link('./td[1]/a')
             obj__card_links = []
-            obj_type = Type(Attr('label'))
+            obj_type = Type(Field('label'))
 
             def parse(self, el):
                 link = el.xpath('./td[1]/a')[0].get('href', '')
@@ -131,11 +134,11 @@ class AccountsPage(LoggedPage, HTMLPage):
 
                 # Handle real balances
                 page = self.page.browser.open(link).page
-                coming = page.find_amount(u"Opérations à venir")
-                accounting = page.find_amount(u"Solde comptable")
+                coming = page.find_amount(u"Opérations à venir") if page else None
+                accounting = page.find_amount(u"Solde comptable") if page else None
 
                 if accounting is not None and accounting + (coming or Decimal('0')) != balance:
-                    self.logger.warning('%s + %s != %s' % (accounting, coming, balance))
+                    self.page.logger.warning('%s + %s != %s' % (accounting, coming, balance))
 
                 if accounting is not None:
                     balance = accounting
@@ -192,7 +195,7 @@ class OperationsPage(LoggedPage, HTMLPage):
 
             class OwnRaw(Filter):
                 def __call__(self, item):
-                    parts = [txt.strip() for txt in item.el.xpath('./td[last()-2]')[0].itertext() if len(txt.strip()) > 0]
+                    parts = [txt.strip() for txt in TableCell('raw')(item)[0].itertext() if len(txt.strip()) > 0]
 
                     # To simplify categorization of CB, reverse order of parts to separate
                     # location and institution.

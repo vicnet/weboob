@@ -19,22 +19,30 @@
 
 from __future__ import absolute_import
 
+from urllib import unquote
 import requests
 import re
 import sys
 from copy import deepcopy
 from cStringIO import StringIO
+import lxml.html as html
+import lxml.etree as etree
 
+from weboob.tools.json import json
 from weboob.tools.ordereddict import OrderedDict
 from weboob.tools.regex_helper import normalize
-from weboob.tools.parsers.lxmlparser import LxmlHtmlParser
+
 from weboob.tools.log import getLogger
 
 from .browser import DomainBrowser
-from .filters import _Filter, CleanText
+from .filters import _Filter, CleanText, AttributeNotFound, XPathNotFound
 
 
 class UrlNotResolvable(Exception):
+    pass
+
+
+class DataError(Exception):
     pass
 
 
@@ -60,11 +68,23 @@ class URL(object):
         self._creation_counter = URL._creation_counter
         URL._creation_counter += 1
 
-    def is_here(self):
+    def is_here(self, **kwargs):
         """
         Returns True if the current page of browser matches this URL.
+        If arguments are provided, and only then, they are checked against the arguments
+        that were used to build the current page URL.
         """
-        return self.browser.page and isinstance(self.browser.page, self.klass)
+        assert self.klass is not None, "You can use this method only if the is a BasePage class handler."
+
+        if len(kwargs):
+            params = self.match(self.browser.absurl(self.build(**kwargs), base=True)).groupdict()
+        else:
+            params = None
+
+        # XXX use unquote on current params values because if there are spaces
+        # or special characters in them, it is encoded only in but not in kwargs.
+        return self.browser.page and isinstance(self.browser.page, self.klass) \
+            and (params is None or params == dict([(k,unquote(v)) for k,v in self.browser.page.params.iteritems()]))
 
     def stay_or_go(self, **kwargs):
         """
@@ -75,12 +95,12 @@ class URL(object):
         >>> url = URL('http://exawple.org/(?P<pagename>).html')
         >>> url.stay_or_go(pagename='index')
         """
-        if self.is_here():
+        if self.is_here(**kwargs):
             return self.browser.page
 
         return self.go(**kwargs)
 
-    def go(self, **kwargs):
+    def go(self, params=None, data=None, **kwargs):
         """
         Request to go on this url.
 
@@ -89,7 +109,22 @@ class URL(object):
         >>> url = URL('http://exawple.org/(?P<pagename>).html')
         >>> url.stay_or_go(pagename='index')
         """
-        r = self.browser.location(self.build(**kwargs))
+        r = self.browser.location(self.build(**kwargs), params=params, data=data)
+        return r.page or r
+
+    def open(self, params=None, data=None, **kwargs):
+        """
+        Request to open on this url.
+
+        Arguments are optional parameters for url.
+
+        :param data: POST data
+        :type url: str or dict or None
+
+        >>> url = URL('http://exawple.org/(?P<pagename>).html')
+        >>> url.open(pagename='index')
+        """
+        r = self.browser.open(self.build(**kwargs), params=params, data=data)
         return r.page or r
 
     def build(self, **kwargs):
@@ -97,19 +132,23 @@ class URL(object):
         for url in self.urls:
             patterns += normalize(url)
 
-        for pattern, args in patterns:
+        for pattern, _ in patterns:
             try:
                 url = pattern % kwargs
             except KeyError:
                 continue
             return url
 
-        raise UrlNotResolvable('Unable to resolve URL with %r. Available are %s' % (kwargs, ', '.join([pattern for pattern, args in patterns])))
+        raise UrlNotResolvable('Unable to resolve URL with %r. Available are %s' % (kwargs, ', '.join([pattern for pattern, _ in patterns])))
 
-    def match(self, url):
+    def match(self, url, base=None):
+        if base is None:
+            assert self.browser is not None
+            base = self.browser.BASEURL
+
         for regex in self.urls:
             if regex.startswith('/'):
-                regex = self.browser.BASEURL + regex
+                regex = re.escape(base) + regex
             m = re.match(regex, url)
             if m:
                 return m
@@ -126,23 +165,14 @@ class URL(object):
             return self.klass(self.browser, response, m.groupdict())
 
     def id2url(self, func):
-        def inner(browser, _id, *args, **kwargs):
-            # id2url is called with the global instance of URL, so there is no
-            # browser set. As except for this kind of thing, the class instance
-            # won't be called, we don't care about changing the 'browser'
-            # attriibute to let match() looks for the BASEURL attribute.
-            # A solution could be to set browser to the class instead of the
-            # instance, but it is possible to a browser to have a variable
-            # BASEURL.
-            self.browser = browser
-            if re.match('^https?://.*', _id):
-                _id = self.match(_id)
-                if _id is None:
+        def inner(browser, id_or_url, *args, **kwargs):
+            if re.match('^https?://.*', id_or_url):
+                if not self.match(id_or_url, browser.BASEURL):
                     return
+            else:
+                id_or_url = self.build(id=id_or_url)
 
-            url = self.build(id=_id)
-
-            return func(browser, url, *args, **kwargs)
+            return func(browser, id_or_url, *args, **kwargs)
         return inner
 
 
@@ -150,11 +180,11 @@ class _PagesBrowserMeta(type):
     """
     Private meta-class used to keep order of URLs instances of PagesBrowser.
     """
-    def __new__(cls, name, bases, attrs):
+    def __new__(mcs, name, bases, attrs):
         urls = [(url_name, attrs.pop(url_name)) for url_name, obj in attrs.items() if isinstance(obj, URL)]
         urls.sort(key=lambda x: x[1]._creation_counter)
 
-        new_class = super(_PagesBrowserMeta, cls).__new__(cls, name, bases, attrs)
+        new_class = super(_PagesBrowserMeta, mcs).__new__(mcs, name, bases, attrs)
         if new_class._urls is None:
             new_class._urls = OrderedDict()
         else:
@@ -163,7 +193,7 @@ class _PagesBrowserMeta(type):
         return new_class
 
 class PagesBrowser(DomainBrowser):
-    """
+    r"""
     A browser which works pages and keep state of navigation.
 
     To use it, you have to derive it and to create URL objects as class
@@ -303,7 +333,7 @@ class LoginBrowser(PagesBrowser):
         self.password = password
 
     def do_login(self):
-        """"
+        """
         Abstract method to implement to login on website.
 
         It is call when a login is needed.
@@ -347,17 +377,30 @@ class Form(OrderedDict):
         self.el = el
         self.method = el.attrib.get('method', 'GET')
         self.url = el.attrib.get('action', page.url)
+        self.name = el.attrib.get('name', '')
 
-        for el in el.xpath('.//input'):
+        for inp in el.xpath('.//input | .//select | .//textarea'):
             try:
-                name = el.attrib['name']
+                name = inp.attrib['name']
             except KeyError:
                 continue
 
-            if el.attrib['type'] == 'checkbox' and not 'checked' in el:
-                continue
+            try:
+                if inp.attrib['type'] in ('checkbox', 'radio') and not 'checked' in inp.attrib:
+                    continue
+            except KeyError:
+                pass
 
-            value = el.attrib.get('value', u'')
+            if inp.tag == 'select':
+                options = inp.xpath('.//option[@selected]')
+                if len(options) == 0:
+                    options = inp.xpath('.//option')
+                if len(options) == 0:
+                    value = u''
+                else:
+                    value = options[0].attrib.get('value', options[0].text or u'')
+            else:
+                value = inp.attrib.get('value', inp.text or u'')
             self[name] = value
 
     @property
@@ -376,6 +419,25 @@ class Form(OrderedDict):
         return self.page.browser.location(self.request)
 
 
+class JsonPage(BasePage):
+    def __init__(self, browser, response, *args, **kwargs):
+        super(JsonPage, self).__init__(browser, response, *args, **kwargs)
+        self.doc = json.loads(response.text)
+
+
+class XMLPage(BasePage):
+    def __init__(self, browser, response, *args, **kwargs):
+        super(XMLPage, self).__init__(browser, response, *args, **kwargs)
+        parser = etree.XMLParser(encoding=response.encoding)
+        self.doc = etree.parse(StringIO(response.content), parser)
+
+
+class RawPage(BasePage):
+    def __init__(self, browser, response, *args, **kwargs):
+        super(RawPage, self).__init__(browser, response, *args, **kwargs)
+        self.doc = response.content
+
+
 class HTMLPage(BasePage):
     """
     HTML page.
@@ -384,8 +446,8 @@ class HTMLPage(BasePage):
 
     def __init__(self, browser, response, *args, **kwargs):
         super(HTMLPage, self).__init__(browser, response, *args, **kwargs)
-        parser = LxmlHtmlParser()
-        self.doc = parser.parse(StringIO(response.content), response.encoding)
+        parser = html.HTMLParser(encoding=response.encoding)
+        self.doc = html.parse(StringIO(response.content), parser)
 
     def get_form(self, xpath=None, name=None, nr=None):
         """
@@ -398,8 +460,8 @@ class HTMLPage(BasePage):
         for el in self.doc.xpath(xpath):
             if name is not None and el.attrib.get('name', '') != name:
                 continue
-            i += i
             if nr is not None and i != nr:
+                i += 1
                 continue
 
             return self.FORM_CLASS(self, el)
@@ -459,7 +521,6 @@ class ListElement(AbstractElement):
         self.objects = {}
 
     def __call__(self, *args, **kwargs):
-
         for key, value in kwargs.iteritems():
             self.env[key] = value
 
@@ -491,7 +552,7 @@ class ListElement(AbstractElement):
         next_page = getattr(self, 'next_page')
         try:
             value = self.use_selector(next_page)
-        except IndexError:
+        except (AttributeNotFound, XPathNotFound):
             return
 
         if value is None:
@@ -503,7 +564,7 @@ class ListElement(AbstractElement):
     def store(self, obj):
         if obj.id:
             if obj.id in self.objects:
-                raise ValueError('There are two objects with the same ID! %s' % obj.id)
+                raise DataError('There are two objects with the same ID! %s' % obj.id)
             self.objects[obj.id] = obj
         return obj
 
@@ -523,7 +584,7 @@ class _ItemElementMeta(type):
     """
     Private meta-class used to keep order of obj_* attributes in ItemElement.
     """
-    def __new__(cls, name, bases, attrs):
+    def __new__(mcs, name, bases, attrs):
         _attrs = []
         for base in bases:
             if hasattr(base, '_attrs'):
@@ -533,7 +594,7 @@ class _ItemElementMeta(type):
         # constants first, then filters, then methods
         filters.sort(key=lambda x: x[1]._creation_counter if hasattr(x[1], '_creation_counter') else (sys.maxint if callable(x[1]) else 0))
 
-        new_class = super(_ItemElementMeta, cls).__new__(cls, name, bases, attrs)
+        new_class = super(_ItemElementMeta, mcs).__new__(mcs, name, bases, attrs)
         new_class._attrs = _attrs + [f[0] for f in filters]
         return new_class
 
@@ -611,3 +672,14 @@ class TableElement(ListElement):
 
     def get_colnum(self, name):
         return self._cols.get(name, None)
+
+
+class LoggedPage(object):
+    """
+    A page that only logged users can reach. If we did not get a redirection
+    for this page, we are sure that the login is still active.
+
+    Do not use this class for page we mixed content (logged/anonymous) or for
+    pages with a login form.
+    """
+    logged = True

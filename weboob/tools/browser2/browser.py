@@ -33,7 +33,6 @@ try:
 except ImportError:
     raise ImportError('Please install python-requests >= 2.0')
 
-
 from weboob.tools.log import getLogger
 
 from .cookies import WeboobCookieJar
@@ -125,7 +124,6 @@ class BaseBrowser(object):
     REFRESH_MAX = 0.0
 
     VERIFY = True
-    SAVE_RESPONSES = False
 
     PROXIES = None
 
@@ -157,13 +155,15 @@ class BaseBrowser(object):
             # try to get an extension (and avoid adding 'None')
             ext = mimetypes.guess_extension(mimetype, False) or ''
 
-        path = re.sub('[^A-z0-9\.-_]+', '_', urlparse(response.url).path.rpartition('/')[2])
+        path = re.sub('[^A-z0-9\.-_]+', '_', urlparse(response.url).path.rpartition('/')[2])[-10:]
         if path.endswith(ext):
             ext = ''
         filename = '%02d-%d%s%s%s' % \
             (self.responses_count, response.status_code, '-' if path else '', path, ext)
 
         response_filepath = os.path.join(self.responses_dirname, filename)
+        with open(response_filepath, 'w') as f:
+            f.write(response.content)
 
         request = response.request
         with open(response_filepath + '-request.txt', 'w') as f:
@@ -198,7 +198,7 @@ class BaseBrowser(object):
 
         session.proxies = self.PROXIES
 
-        session.verify = self.VERIFY
+        session.verify = self.VERIFY and not self.logger.settings['ssl_insecure']
 
         # defines a max_retries. It's mandatory in case a server is not
         # handling keep alive correctly, like the proxy burp
@@ -213,13 +213,12 @@ class BaseBrowser(object):
 
         profile.setup_session(session)
 
-        if self.SAVE_RESPONSES:
+        if self.logger.settings['save_responses']:
             session.hooks['response'].append(self._save)
 
         self.session = session
 
-        cj = WeboobCookieJar()
-        session.cookies = cj
+        session.cookies = WeboobCookieJar()
 
     def location(self, url, **kwargs):
         """
@@ -271,13 +270,19 @@ class BaseBrowser(object):
         :rtype: :class:`requests.Response`
         """
         req = self.build_request(url, referrer, **kwargs)
+
         preq = self.session.prepare_request(req)
+        if hasattr(preq, '_cookies'):
+            # The _cookies attribute is not present in requests < 2.2. As in
+            # previous version it doesn't calls extract_cookies_to_jar(), it is
+            # not a problem as we keep our own cookiejar instance.
+            preq._cookies = WeboobCookieJar.from_cookiejar(preq._cookies)
 
         if proxies is None:
             proxies = self.PROXIES
 
         if verify is None:
-            verify = self.VERIFY
+            verify = self.VERIFY and not self.logger.settings['ssl_insecure']
 
         if timeout is None:
             timeout = self.TIMEOUT

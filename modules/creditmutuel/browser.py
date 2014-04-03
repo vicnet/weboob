@@ -25,15 +25,14 @@ from weboob.tools.browser2 import LoginBrowser, URL, Wget, need_login
 from weboob.tools.browser import  BrowserIncorrectPassword
 from weboob.capabilities.bank import Transfer, TransferError
 
-from .pages import LoginPage, LoginErrorPage, AccountsPage, \
+from .pages import LoginPage, LoginErrorPage, AccountsPage, UserSpacePage, \
                    OperationsPage, CardPage, ComingPage, NoOperationsPage, \
-                   TransfertPage, ChangePasswordPage, VerifCodePage
+                   TransfertPage, ChangePasswordPage, VerifCodePage, EmptyPage
 
 
 __all__ = ['CreditMutuelBrowser']
 
 
-# Browser
 class CreditMutuelBrowser(LoginBrowser):
     PROFILE = Wget()
     BASEURL = 'https://www.creditmutuel.fr'
@@ -41,27 +40,25 @@ class CreditMutuelBrowser(LoginBrowser):
     login =       URL('/groupe/fr/index.html',                               LoginPage)
     login_error = URL('/(?P<subbank>.*)/fr/identification/default.cgi',      LoginErrorPage)
     accounts =    URL('/(?P<subbank>.*)/fr/banque/situation_financiere.cgi', AccountsPage)
-    user_space =  URL('/(?P<subbank>.*)/fr/banque/espace_personnel.aspx')
+    user_space =  URL('/(?P<subbank>.*)/fr/banque/espace_personnel.aspx',    UserSpacePage)
     operations =  URL('/(?P<subbank>.*)/fr/banque/mouvements.cgi.*',
                       '/(?P<subbank>.*)/fr/banque/nr/nr_devbooster.aspx.*',
                       OperationsPage)
     coming =      URL('/(?P<subbank>.*)/fr/banque/mvts_instance.cgi.*',      ComingPage)
     card =        URL('/(?P<subbank>.*)/fr/banque/operations_carte.cgi.*',   CardPage)
     noop =        URL('/(?P<subbank>.*)/fr/banque/CR/arrivee.asp.*',         NoOperationsPage)
-    info =        URL('/(?P<subbank>.*)/fr/banque/BAD.*')
-    transfert =   URL('/(?P<subbank>.*)/fr/banque/WI_VPLV_VirUniSaiCpt.asp\?(?P<params>.*)', TransfertPage)
+    info =        URL('/(?P<subbank>.*)/fr/banque/BAD.*',                    EmptyPage)
+    transfert =   URL('/(?P<subbank>.*)/fr/banque/WI_VPLV_VirUniSaiCpt.asp\?(?P<parameters>.*)', TransfertPage)
     change_pass = URL('/(?P<subbank>.*)/fr/validation/change_password.cgi',  ChangePasswordPage)
     verify_pass = URL('/(?P<subbank>.*)/fr/validation/verif_code.cgi.*',     VerifCodePage)
-    empty =       URL('/(?P<subbank>.*)/fr/',
+    empty =       URL('/(?P<subbank>.*)/fr/$',
                       '/(?P<subbank>.*)/fr/banques/index.html',
-                      '/(?P<subbank>.*)/fr/banque/paci_beware_of_phishing.html.*',
+                      '/(?P<subbank>.*)/fr/banque/paci_beware_of_phishing.*',
                       '/(?P<subbank>.*)/fr/validation/(?!change_password|verif_code).*',
-                      )
+                      EmptyPage)
 
     currentSubBank = None
 
-    def home(self):
-        return self.login.go()
 
     def do_login(self):
         self.login.stay_or_go()
@@ -94,6 +91,9 @@ class CreditMutuelBrowser(LoginBrowser):
             self.location(page_url)
         else:
             self.location('%s/%s/fr/banque/%s' % (self.BASEURL, self.currentSubBank, page_url))
+
+        if not self.operations.is_here():
+            return iter([])
 
         return self.pagination(lambda: self.page.get_history())
 
@@ -133,8 +133,8 @@ class CreditMutuelBrowser(LoginBrowser):
 
     def transfer(self, account, to, amount, reason=None):
         # access the transfer page
-        params = 'RAZ=ALL&Cat=6&PERM=N&CHX=A'
-        page = self.transfert.go(subbank=self.currentSubBank, params=params)
+        parameters = 'RAZ=ALL&Cat=6&PERM=N&CHX=A'
+        page = self.transfert.go(subbank=self.currentSubBank, parameters=parameters)
 
         # fill the form
         form = self.page.get_form(name='FormVirUniSaiCpt')
