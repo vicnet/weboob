@@ -19,21 +19,19 @@
 
 from __future__ import absolute_import
 
-from dateutil.parser import parse as parse_date
 import datetime
-from decimal import Decimal, InvalidOperation
 import re
+from decimal import Decimal, InvalidOperation
+
 import lxml.html as html
+from dateutil.parser import parse as parse_date
 
-from weboob.tools.misc import html2text
 from weboob.capabilities.base import empty
-
+from weboob.tools.compat import basestring
+from weboob.tools.exceptions import ParseError
+from weboob.tools.misc import html2text
 
 _NO_DEFAULT = object()
-
-
-class ParseError(Exception):
-    pass
 
 
 class FilterError(ParseError):
@@ -119,6 +117,7 @@ class Env(_Filter):
     It is used for example to get page parameters, or when there is a parse()
     method on ItemElement.
     """
+
     def __init__(self, name):
         super(Env, self).__init__()
         self.name = name
@@ -133,17 +132,18 @@ class TableCell(_Filter):
 
     For example:
 
-        class table(TableElement):
-            head_xpath = '//table/thead/th'
-            item_xpath = '//table/tbody/tr'
-
-            col_date =    u'Date'
-            col_label =   [u'Name', u'Label']
-
-            class item(ItemElement):
-                klass = Object
-                obj_date = Date(TableCell('date'))
-                obj_label = CleanText(TableCell('label'))
+    >>> from weboob.capabilities.bank import Transaction
+    >>> from .page import TableElement, ItemElement
+    >>> class table(TableElement):
+    ...     head_xpath = '//table/thead/th'
+    ...     item_xpath = '//table/tbody/tr'
+    ...     col_date =    u'Date'
+    ...     col_label =   [u'Name', u'Label']
+    ...     class item(ItemElement):
+    ...         klass = Transaction
+    ...         obj_date = Date(TableCell('date'))
+    ...         obj_label = CleanText(TableCell('label'))
+    ...
     """
 
     def __init__(self, *names, **kwargs):
@@ -158,9 +158,53 @@ class TableCell(_Filter):
 
         return self.default_or_raise(ColumnNotFound('Unable to find column %s' % ' or '.join(self.names)))
 
+
+class Dict(Filter):
+    @classmethod
+    def select(cls, selector, item):
+        if isinstance(selector, basestring):
+            if isinstance(item, dict):
+                content = item
+            else:
+                content = item.el
+
+            for el in selector.split('/'):
+                if el not in content:
+                    raise ParseError()
+
+                content = content.get(el)
+
+            return content
+        elif callable(selector):
+            return selector(item)
+        else:
+            return selector
+
+    def filter(self, txt):
+        return txt
+
+
 class CleanHTML(Filter):
     def filter(self, txt):
-        return html2text(html.tostring(txt[0], encoding=unicode))
+        if isinstance(txt, (tuple, list)):
+            return u' '.join([self.clean(item) for item in txt])
+        return self.clean(txt)
+
+    @classmethod
+    def clean(cls, txt):
+        return html2text(html.tostring(txt, encoding=unicode))
+
+
+class RawText(Filter):
+    def filter(self, el):
+        if isinstance(el, (tuple, list)):
+            return u' '.join([self.filter(e) for e in el])
+
+        if el.text is None:
+            return self.default
+        else:
+            return unicode(el.text)
+
 
 class CleanText(Filter):
     """
@@ -170,6 +214,7 @@ class CleanText(Filter):
     string.
     Second, it replaces all symbols given in second argument.
     """
+
     def __init__(self, selector, symbols='', replace=[], childs=True, **kwargs):
         super(CleanText, self).__init__(selector, **kwargs)
         self.symbols = symbols
@@ -177,8 +222,8 @@ class CleanText(Filter):
         self.childs = childs
 
     def filter(self, txt):
-        if isinstance(txt, (tuple,list)):
-            txt = ' '.join([self.clean(item, childs=self.childs) for item in txt])
+        if isinstance(txt, (tuple, list)):
+            txt = u' '.join([self.clean(item, childs=self.childs) for item in txt])
 
         txt = self.clean(txt, childs=self.childs)
         txt = self.remove(txt, self.symbols)
@@ -218,6 +263,7 @@ class CleanDecimal(CleanText):
     """
     Get a cleaned Decimal value from an element.
     """
+
     def __init__(self, selector, replace_dots=True, default=_NO_DEFAULT):
         super(CleanDecimal, self).__init__(selector, default=default)
         self.replace_dots = replace_dots
@@ -225,9 +271,9 @@ class CleanDecimal(CleanText):
     def filter(self, text):
         text = super(CleanDecimal, self).filter(text)
         if self.replace_dots:
-            text = text.replace('.','').replace(',','.')
+            text = text.replace('.', '').replace(',', '.')
         try:
-            return Decimal(re.sub(ur'[^\d\-\.]', '', text))
+            return Decimal(re.sub(r'[^\d\-\.]', '', text))
         except InvalidOperation as e:
             return self.default_or_raise(e)
 
@@ -252,6 +298,7 @@ class Link(Attr):
 
     If the <a> tag is not found, an exception IndexError is raised.
     """
+
     def __init__(self, selector, default=_NO_DEFAULT):
         super(Link, self).__init__(selector, 'href', default=default)
 
@@ -260,6 +307,7 @@ class Field(_Filter):
     """
     Get the attribute of object.
     """
+
     def __init__(self, name):
         super(Field, self).__init__()
         self.name = name
@@ -277,6 +325,7 @@ class Regexp(Filter):
     >>> f(etree.fromstring('<html><body><p>Date: <span>13/08/1988</span></p></body></html>'))
     u'1988-08-13'
     """
+
     def __init__(self, selector, pattern, template=None, flags=0, default=_NO_DEFAULT):
         super(Regexp, self).__init__(selector, default=default)
         self.pattern = pattern
@@ -284,8 +333,8 @@ class Regexp(Filter):
         self.template = template
 
     def filter(self, txt):
-        if isinstance(txt, (tuple,list)):
-            txt = ' '.join([t.strip() for t in txt.itertext()])
+        if isinstance(txt, (tuple, list)):
+            txt = u' '.join([t.strip() for t in txt.itertext()])
 
         mobj = self.regex.search(txt)
         if not mobj:
@@ -298,6 +347,7 @@ class Regexp(Filter):
 
 
 class Map(Filter):
+
     def __init__(self, selector, map_dict, default=_NO_DEFAULT):
         super(Map, self).__init__(selector, default=default)
         self.map_dict = map_dict
@@ -310,31 +360,60 @@ class Map(Filter):
 
 
 class DateTime(Filter):
-    def __init__(self, selector, default=_NO_DEFAULT, dayfirst=False):
+    def __init__(self, selector, default=_NO_DEFAULT, dayfirst=False, translations=None):
         super(DateTime, self).__init__(selector, default=default)
         self.dayfirst = dayfirst
+        self.translations = translations
 
     def filter(self, txt):
-        if empty(txt):
-            return txt
+        if empty(txt) or txt == '':
+            return self.default_or_raise(ParseError('Unable to parse %r' % txt))
         try:
+            if self.translations:
+                for search, repl in self.translations:
+                    txt = search.sub(repl, txt)
             return parse_date(txt, dayfirst=self.dayfirst)
         except ValueError as e:
             return self.default_or_raise(ParseError('Unable to parse %r: %s' % (txt, e)))
 
 
 class Date(DateTime):
-    def __init__(self, selector, default=_NO_DEFAULT, dayfirst=False):
-        super(Date, self).__init__(selector, default=default, dayfirst=dayfirst)
+    def __init__(self, selector, default=_NO_DEFAULT, dayfirst=False, translations=None):
+        super(Date, self).__init__(selector, default=default, dayfirst=dayfirst, translations=translations)
 
     def filter(self, txt):
         datetime = super(Date, self).filter(txt)
-        if datetime is not None:
+        if hasattr(datetime, 'date'):
             return datetime.date()
+        else:
+            return datetime
+
+
+class DateGuesser(Filter):
+    def __init__(self, selector, date_guesser, **kwargs):
+        super(DateGuesser, self).__init__(selector)
+        self.date_guesser = date_guesser
+        self.kwargs = kwargs
+
+    def __call__(self, item):
+        values = self.select(self.selector, item)
+        date_guesser = self.date_guesser
+        # In case Env() is used to kive date_guesser.
+        if isinstance(date_guesser, _Filter):
+            date_guesser = self.select(date_guesser, item)
+
+        if isinstance(values, basestring):
+            values = re.split('[/-]', values)
+        if len(values) == 2:
+            day, month = map(int, values)
+        else:
+            raise ParseError('Unable to take (day, month) tuple from %r' % values)
+        return date_guesser.guess_date(day, month, **self.kwargs)
+
 
 class Time(Filter):
     klass = datetime.time
-    regexp = re.compile(ur'(?P<hh>\d+):?(?P<mm>\d+)(:(?P<ss>\d+))?')
+    regexp = re.compile(r'(?P<hh>\d+):?(?P<mm>\d+)(:(?P<ss>\d+))?')
     kwargs = {'hour': 'hh', 'minute': 'mm', 'second': 'ss'}
 
     def __init__(self, selector, default=_NO_DEFAULT):
@@ -353,7 +432,7 @@ class Time(Filter):
 
 class Duration(Time):
     klass = datetime.timedelta
-    regexp = re.compile(ur'((?P<hh>\d+)[:;])?(?P<mm>\d+)[;:](?P<ss>\d+)')
+    regexp = re.compile(r'((?P<hh>\d+)[:;])?(?P<mm>\d+)[;:](?P<ss>\d+)')
     kwargs = {'hours': 'hh', 'minutes': 'mm', 'seconds': 'ss'}
 
 
@@ -387,13 +466,14 @@ class Format(MultiFilter):
 
 
 class Join(Filter):
-    def __init__(self, pattern, selector):
+    def __init__(self, pattern, selector, textCleaner=CleanText):
         super(Join, self).__init__(selector)
         self.pattern = pattern
+        self.textCleaner = textCleaner
 
     def filter(self, el):
         res = u''
         for li in el:
-            res += self.pattern % CleanText.clean(li)
+            res += self.pattern % self.textCleaner.clean(li)
 
         return res

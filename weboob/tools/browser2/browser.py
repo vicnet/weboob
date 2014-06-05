@@ -17,10 +17,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import re
-from urlparse import urlparse, urljoin
+try:
+    from urllib.parse import urlparse, urljoin
+except ImportError:
+    from urlparse import urlparse, urljoin
 import mimetypes
 import os
 import tempfile
@@ -36,6 +39,7 @@ except ImportError:
 from weboob.tools.log import getLogger
 
 from .cookies import WeboobCookieJar
+from .exceptions import HTTPNotFound, ClientError, ServerError
 
 
 class Profile(object):
@@ -120,10 +124,25 @@ class BaseBrowser(object):
     """
 
     PROFILE = Firefox()
+    """
+    Default profile used by browser to navigate on websites.
+    """
+
     TIMEOUT = 10.0
+    """
+    Default timeout during requests.
+    """
+
     REFRESH_MAX = 0.0
+    """
+    When handling a Refresh header, the browsers considers it only if the sleep
+    time in lesser than this value.
+    """
 
     VERIFY = True
+    """
+    Check SSL certificates.
+    """
 
     PROXIES = None
 
@@ -142,7 +161,7 @@ class BaseBrowser(object):
     def _save(self, response, warning=False, **kwargs):
         if self.responses_dirname is None:
             self.responses_dirname = tempfile.mkdtemp(prefix='weboob_session_')
-            print >>sys.stderr, 'Debug data will be saved in this directory: %s' % self.responses_dirname
+            print('Debug data will be saved in this directory: %s' % self.responses_dirname, file=sys.stderr)
         elif not os.path.isdir(self.responses_dirname):
             os.makedirs(self.responses_dirname)
 
@@ -155,7 +174,7 @@ class BaseBrowser(object):
             # try to get an extension (and avoid adding 'None')
             ext = mimetypes.guess_extension(mimetype, False) or ''
 
-        path = re.sub('[^A-z0-9\.-_]+', '_', urlparse(response.url).path.rpartition('/')[2])[-10:]
+        path = re.sub(r'[^A-z0-9\.-_]+', '_', urlparse(response.url).path.rpartition('/')[2])[-10:]
         if path.endswith(ext):
             ext = ''
         filename = '%02d-%d%s%s%s' % \
@@ -222,7 +241,7 @@ class BaseBrowser(object):
 
     def location(self, url, **kwargs):
         """
-        Like open() but also changes the current URL and response.
+        Like :meth:`open` but also changes the current URL and response.
         This is the most common method to request web pages.
 
         Other than that, has the exact same behavior of open().
@@ -239,6 +258,7 @@ class BaseBrowser(object):
                    verify=None,
                    cert=None,
                    proxies=None,
+                   data_encoding=None,
                    **kwargs):
         """
         Make an HTTP request like a browser does:
@@ -269,9 +289,9 @@ class BaseBrowser(object):
 
         :rtype: :class:`requests.Response`
         """
-        req = self.build_request(url, referrer, **kwargs)
+        req = self.build_request(url, referrer, data_encoding=data_encoding, **kwargs)
+        preq = self.prepare_request(req)
 
-        preq = self.session.prepare_request(req)
         if hasattr(preq, '_cookies'):
             # The _cookies attribute is not present in requests < 2.2. As in
             # previous version it doesn't calls extract_cookies_to_jar(), it is
@@ -299,11 +319,31 @@ class BaseBrowser(object):
         if allow_redirects:
             response = self.handle_refresh(response)
 
-        response.raise_for_status()
-
+        self.raise_for_status(response)
         return response
 
-    def build_request(self, url, referrer=None, **kwargs):
+    def raise_for_status(self, response):
+        """
+        Like Response.raise_for_status but will use other classes if needed.
+        """
+        http_error_msg = None
+        if 400 <= response.status_code < 500:
+            http_error_msg = '%s Client Error: %s' % (response.status_code, response.reason)
+            cls = ClientError
+            if response.status_code == 404:
+                cls = HTTPNotFound
+        elif 500 <= response.status_code < 600:
+            http_error_msg = '%s Server Error: %s' % (response.status_code, response.reason)
+            cls = ServerError
+
+        if http_error_msg:
+            raise cls(http_error_msg, response=response)
+
+        # in case we did not catch something that should be
+        response.raise_for_status()
+
+
+    def build_request(self, url, referrer=None, data_encoding=None, **kwargs):
         """
         Does the same job as open(), but returns a Request without
         submitting it.
@@ -322,6 +362,13 @@ class BaseBrowser(object):
             else:
                 req.method = 'GET'
 
+        # convert unicode strings to proper encoding
+        if isinstance(req.data, unicode) and data_encoding:
+            req.data = req.data.encode(data_encoding)
+        if isinstance(req.data, dict) and data_encoding:
+            req.data = dict([(k, v.encode(data_encoding) if isinstance(v, unicode) else v)
+                             for k, v in req.data.iteritems()])
+
         if referrer is None:
             referrer = self.get_referrer(self.url, url)
         if referrer:
@@ -330,7 +377,15 @@ class BaseBrowser(object):
 
         return req
 
-    REFRESH_RE = re.compile("^(?P<sleep>[\d\.]+)(; url=[\"']?(?P<url>.*?)[\"']?)?$", re.IGNORECASE)
+    def prepare_request(self, req):
+        """
+        Get a prepared request from a Request object.
+
+        This method aims to be overloaded by children classes.
+        """
+        return self.session.prepare_request(req)
+
+    REFRESH_RE = re.compile(r"^(?P<sleep>[\d\.]+)(; url=[\"']?(?P<url>.*?)[\"']?)?$", re.IGNORECASE)
 
     def handle_refresh(self, response):
         """
@@ -393,7 +448,10 @@ class BaseBrowser(object):
 
 
 class UrlNotAllowed(Exception):
-    pass
+    """
+    Raises by :class:`DomainBrowser` when `RESTRICT_URL` is set and trying to go
+    on an url not matching `BASEURL`.
+    """
 
 
 class DomainBrowser(BaseBrowser):
@@ -410,6 +468,7 @@ class DomainBrowser(BaseBrowser):
     See absurl().
     """
 
+    RESTRICT_URL = False
     """
     URLs allowed to load.
     This can be used to force SSL (if the BASEURL is SSL) or any other leakage.
@@ -417,7 +476,6 @@ class DomainBrowser(BaseBrowser):
     Set it to a list of allowed URLs if you have multiple allowed URLs.
     More complex behavior is possible by overloading url_allowed()
     """
-    RESTRICT_URL = False
 
     def url_allowed(self, url):
         """
@@ -458,6 +516,10 @@ class DomainBrowser(BaseBrowser):
         return urljoin(base, uri)
 
     def open(self, req, *args, **kwargs):
+        """
+        Like :meth:`BaseBrowser.open` but hanldes urls without domains, using
+        the :attr:`BASEURL` attribute.
+        """
         uri = req.url if isinstance(req, requests.Request) else req
 
         url = self.absurl(uri)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright(C) 2013 Bezleputh
+# Copyright(C) 2014      Roger Philibert
 #
 # This file is part of weboob.
 #
@@ -17,18 +17,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.job import BaseJobAdvert
+
+from weboob.tools.test import BackendTest
 
 
-class IndeedJobAdvert(BaseJobAdvert):
+class TinderTest(BackendTest):
+    BACKEND = 'tinder'
 
-    @classmethod
-    def id2url(cls, _id):
-        dico_car_part = {" ": "-",
-                         "/": "-",
-                         }
-        for cle, valeur in dico_car_part.items():
-            _id = _id.replace(cle, valeur)
-
-        splitted_id = _id.split('|')
-        return 'http://www.indeed.fr/cmp/%s/jobs/%s-%s' % (splitted_id[0], splitted_id[1], splitted_id[2])
+    def test_tinder(self):
+        self.backend.browser.like_profile()

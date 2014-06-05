@@ -27,6 +27,7 @@ from weboob.capabilities import NotAvailable, NotLoaded
 from weboob.tools.misc import to_unicode
 from weboob.tools.log import getLogger
 
+from weboob.tools.exceptions import ParseError
 from weboob.tools.browser2.page import TableElement, ItemElement
 from weboob.tools.browser2.filters import Filter, CleanText, CleanDecimal, TableCell
 
@@ -102,11 +103,11 @@ class FrenchTransaction(Transaction):
         PATTERN class attribute) with a list containing tuples of regexp
         and the associated type, for example::
 
-            PATTERNS = [(re.compile('^VIR(EMENT)? (?P<text>.*)'), FrenchTransaction.TYPE_TRANSFER),
-                        (re.compile('^PRLV (?P<text>.*)'),        FrenchTransaction.TYPE_ORDER),
-                        (re.compile('^(?P<text>.*) CARTE \d+ PAIEMENT CB (?P<dd>\d{2})(?P<mm>\d{2}) ?(.*)$'),
-                                                                  FrenchTransaction.TYPE_CARD)
-                       ]
+        >>> PATTERNS = [(re.compile('^VIR(EMENT)? (?P<text>.*)'), FrenchTransaction.TYPE_TRANSFER),
+        ...             (re.compile('^PRLV (?P<text>.*)'),        FrenchTransaction.TYPE_ORDER),
+        ...             (re.compile('^(?P<text>.*) CARTE \d+ PAIEMENT CB (?P<dd>\d{2})(?P<mm>\d{2}) ?(.*)$'),
+        ...                                                       FrenchTransaction.TYPE_CARD)
+        ...            ]
 
         In regexps, you can define this patterns:
 
@@ -279,7 +280,7 @@ class FrenchTransaction(Transaction):
                                 else:
                                     item.obj.rdate = datetime.date(yy, mm, dd)
                             except ValueError as e:
-                                self._logger.warning('Unable to date in label %r: %s' % (raw, e))
+                                raise ParseError('Unable to date in label %r: %s' % (raw, e))
 
                         break
 
@@ -306,7 +307,10 @@ class FrenchTransaction(Transaction):
                 except InvalidOperation:
                     pass
 
-            try:
-                return CleanDecimal(self.credit_selector)(item)
-            except InvalidOperation:
-                return Decimal('0')
+            if self.credit_selector:
+                try:
+                    return CleanDecimal(self.credit_selector)(item)
+                except InvalidOperation:
+                    pass
+
+            return Decimal('0')
