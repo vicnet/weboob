@@ -77,4 +77,10 @@ class ProfilePage(LoggedPage, HTMLPage):
             res.update(self.getField('host-smoking'))
             res.update(self.getField('host-months'))
             res.update(self.getField('host-nearest-town'))
+            res['Extra Information'] = CleanText('.//div[contains(@class,"host-extra-info")]')(self)
+            res['Feedback'] = CleanText('.//div[contains(@class,"view-feedback")]')(self)
+            res['Name'] = CleanText('.//div[contains(@class,"host-name")]')(self)
+            res['Address'] = CleanText('.//div[contains(@class,"host-postal-address")]')(self)
+            res['Telephone'] = CleanText('.//div[contains(@class,"host-tel1")]')(self)
+            res['Url'] = CleanText('.//div[contains(@class,"host-url")]')(self)
             return res

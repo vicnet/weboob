@@ -31,31 +31,15 @@ __all__ = ['Wwoof']
 class HousingFormatter(IFormatter):
     MANDATORY_FIELDS = ('id', 'title', 'cost', 'currency', 'area', 'date', 'text')
 
+    def start_format(self, **kwargs):
+        self.output('Titre\tDescription\t"When are WWOOFers wanted?"\t"Url"\t"Feedback"\t"Nearest Town"\t"Food menu"\t"Extra Information"\t"Smoking allowed?"\t"Organic status"\t"Address"\t"Telephone"\t"Site type"\t"Accommodation"\t"Name"')
+
     def format_obj(self, obj, alias):
-        result = u'%s%s%s\n' % (self.BOLD, obj.title, self.NC)
-        result += 'ID: %s\n' % obj.fullid
-        result += 'Cost: %s%s\n' % (obj.cost, obj.currency)
-        result += u'Area: %sm²\n' % (obj.area)
-        if obj.date:
-            result += 'Date: %s\n' % obj.date.strftime('%Y-%m-%d')
-        result += 'Phone: %s\n' % obj.phone
-        if hasattr(obj, 'location') and obj.location:
-            result += 'Location: %s\n' % obj.location
-        if hasattr(obj, 'station') and obj.station:
-            result += 'Station: %s\n' % obj.station
-
-        if hasattr(obj, 'photos') and obj.photos:
-            result += '\n%sPhotos%s\n' % (self.BOLD, self.NC)
-            for photo in obj.photos:
-                result += ' * %s\n' % photo.url
-
-        result += '\n%sDescription%s\n' % (self.BOLD, self.NC)
-        result += obj.text
-
+        result = u'"%s"' % obj.title
+        result += u'\t"%s"' % obj.text
         if hasattr(obj, 'details') and obj.details:
-            result += '\n\n%sDetails%s\n' % (self.BOLD, self.NC)
             for key, value in obj.details.iteritems():
-                result += ' %s: %s\n' % (key, value)
+                result += '\t"%s"' % value
         return result
 
 class Wwoof(ReplApplication):
