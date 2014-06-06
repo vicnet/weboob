@@ -19,7 +19,7 @@
 
 from weboob.tools.browser2 import LoginBrowser, URL, need_login#, Profile, Firefox
 from weboob.tools.browser import BrowserIncorrectPassword
-from .pages import LoginPage, HostlistPage
+from .pages import LoginPage, HostlistPage, ProfilePage
 
 
 __all__ = ['WwoofieBrowser']
@@ -28,13 +28,17 @@ __all__ = ['WwoofieBrowser']
 class WwoofieBrowser(LoginBrowser):
     BASEURL = 'http://www.wwoof.ie'
 
-    hostlist = URL('/hostlist/full/munster/all', HostlistPage)
     login = URL('/user', LoginPage)
+    users = URL('/users/.*')
+    hostlist = URL('/hostlist/full/munster/all', HostlistPage)
+    profile = URL('/profile/(?P<id>[0-9]+)', ProfilePage)
 
     def do_login(self):
         assert isinstance(self.username, basestring)
         assert isinstance(self.password, basestring)
 
+        #if self.users.is_here():
+            #return
         self.login.stay_or_go().login(self.username, self.password)
 
         # test if success
@@ -45,3 +49,7 @@ class WwoofieBrowser(LoginBrowser):
     @need_login
     def search_housings(self):
         return self.hostlist.stay_or_go().search_housings()
+
+    @need_login
+    def get_housing(self, id):
+        return self.profile.stay_or_go(id=id).get_housing()

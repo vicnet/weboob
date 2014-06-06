@@ -19,7 +19,7 @@
 
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword#,Value, ValueBool
-from weboob.capabilities.housing import ICapHousing, City
+from weboob.capabilities.housing import ICapHousing, City, Housing
 
 from .browser import WwoofieBrowser
 
@@ -56,3 +56,11 @@ class WwoofieBackend(BaseBackend, ICapHousing):
             return list([])
 
         return self.browser.search_housings()
+
+    def get_housing(self, housing):
+        if isinstance(housing, Housing):
+            id = housing.id
+        else:
+            id = housing
+
+        return self.browser.get_housing(id)
