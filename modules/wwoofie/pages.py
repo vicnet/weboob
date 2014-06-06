@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.tools.browser2.page import HTMLPage, method,pagination, ListElement, ItemElement
+from weboob.tools.browser2.page import HTMLPage, LoggedPage, method,pagination, ListElement, ItemElement
 from weboob.tools.browser2.filters import MultiFilter, Link, CleanText, Regexp
 from weboob.capabilities.housing import Housing
 
@@ -32,7 +32,7 @@ class LoginPage(HTMLPage):
         form['pass'] = password
         form.submit()
 
-class HostlistPage(HTMLPage):
+class HostlistPage(LoggedPage, HTMLPage):
     @pagination
     @method
     class search_housings(ListElement):
@@ -50,7 +50,7 @@ class HostlistPage(HTMLPage):
             obj_currency = u'€'
             obj_area = 0
 
-class ProfilePage(HTMLPage):
+class ProfilePage(LoggedPage, HTMLPage):
     @method
     class get_housing(ItemElement):
         klass = Housing

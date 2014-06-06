@@ -51,9 +51,9 @@ class WwoofieBackend(BaseBackend, ICapHousing):
         yield c
 
     def search_housings(self, query):
-        cities = [c.id for c in query.cities if c.backend == self.name]
-        if len(cities) == 0:
-            return list([])
+        #cities = [c.id for c in query.cities if c.backend == self.name]
+        #if len(cities) == 0:
+            #return list([])
 
         return self.browser.search_housings()
 
