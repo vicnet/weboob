@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.weather import ICapWeather
+from weboob.capabilities.weather import CapWeather
 from weboob.tools.backend import BaseBackend
 
 from .browser import WeatherBrowser
@@ -26,11 +26,11 @@ from .browser import WeatherBrowser
 __all__ = ['WeatherBackend']
 
 
-class WeatherBackend(BaseBackend, ICapWeather):
+class WeatherBackend(BaseBackend, CapWeather):
     NAME = 'weather'
     MAINTAINER = u'Arno Renevier'
     EMAIL = 'arno@renevier.net'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'Get forecasts from weather.com'
     LICENSE = 'AGPLv3+'
     BROWSER = WeatherBrowser

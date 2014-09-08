@@ -22,8 +22,8 @@
 from decimal import Decimal
 from datetime import datetime, timedelta
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound, Account, Recipient
-from weboob.capabilities.messages import ICapMessages, Thread
+from weboob.capabilities.bank import CapBank, AccountNotFound, Account, Recipient
+from weboob.capabilities.messages import CapMessages, Thread
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 
@@ -33,11 +33,11 @@ from .browser import HelloBank
 __all__ = ['HelloBankBackend']
 
 
-class HelloBankBackend(BaseBackend, ICapBank, ICapMessages):
+class HelloBankBackend(BaseBackend, CapBank, CapMessages):
     NAME = 'hellobank'
     MAINTAINER = u'Christophe Lampin'
     EMAIL = 'weboob@lampin.net'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     DESCRIPTION = u'Hello Bank!'
     CONFIG = BackendConfig(ValueBackendPassword('login',      label='Identifiant', masked=False),

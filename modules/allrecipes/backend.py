@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.recipe import ICapRecipe, Recipe
+from weboob.capabilities.recipe import CapRecipe, Recipe
 from weboob.tools.backend import BaseBackend
 
 from .browser import AllrecipesBrowser
@@ -27,11 +27,11 @@ from urllib import quote_plus
 __all__ = ['AllrecipesBackend']
 
 
-class AllrecipesBackend(BaseBackend, ICapRecipe):
+class AllrecipesBackend(BaseBackend, CapRecipe):
     NAME = 'allrecipes'
     MAINTAINER = u'Julien Veyssier'
     EMAIL = 'julien.veyssier@aiur.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = u'Allrecipes English recipe website'
     LICENSE = 'AGPLv3+'
     BROWSER = AllrecipesBrowser

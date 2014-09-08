@@ -19,7 +19,7 @@
 
 
 from weboob.capabilities.base import find_object
-from weboob.capabilities.bank import ICapBank, AccountNotFound
+from weboob.capabilities.bank import CapBank, AccountNotFound
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 
@@ -29,13 +29,13 @@ from .browser import BanqueAccordBrowser
 __all__ = ['BanqueAccordBackend']
 
 
-class BanqueAccordBackend(BaseBackend, ICapBank):
+class BanqueAccordBackend(BaseBackend, CapBank):
     NAME = 'banqueaccord'
     DESCRIPTION = u'Banque Accord'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
     LICENSE = 'AGPLv3+'
-    VERSION = '0.j'
+    VERSION = '1.0'
     CONFIG = BackendConfig(ValueBackendPassword('login',    label='Identifiant', regexp='\d+', masked=False),
                            ValueBackendPassword('password', label=u"Code d'accès", regexp='\d+'))
 

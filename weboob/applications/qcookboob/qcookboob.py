@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.recipe import ICapRecipe
+from weboob.capabilities.recipe import CapRecipe
 from weboob.tools.application.qt import QtApplication
 
 from .main_window import MainWindow
@@ -26,18 +26,18 @@ from .main_window import MainWindow
 
 class QCookboob(QtApplication):
     APPNAME = 'qcookboob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2013 Julien Veyssier'
     DESCRIPTION = "Qt application allowing to search recipes."
     SHORT_DESCRIPTION = "search recipes"
-    CAPS = ICapRecipe
+    CAPS = CapRecipe
     CONFIG = {'settings': {'backend': '',
                            'maxresultsnumber': '10'
                            }
               }
 
     def main(self, argv):
-        self.load_backends([ICapRecipe])
+        self.load_backends([CapRecipe])
         self.load_config()
 
         self.main_window = MainWindow(self.config, self.weboob, self)

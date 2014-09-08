@@ -19,7 +19,7 @@
 "backend for http://translate.google.com"
 
 
-from weboob.capabilities.translate import ICapTranslate, Translation, TranslationFail, LanguageNotSupported
+from weboob.capabilities.translate import CapTranslate, Translation, TranslationFail, LanguageNotSupported
 from weboob.tools.backend import BaseBackend
 
 from .browser import GoogleTranslateBrowser
@@ -28,10 +28,10 @@ from .browser import GoogleTranslateBrowser
 __all__ = ['GoogleTranslateBackend']
 
 
-class GoogleTranslateBackend(BaseBackend, ICapTranslate):
+class GoogleTranslateBackend(BaseBackend, CapTranslate):
     MAINTAINER = u'Lucien Loiseau'
     EMAIL = 'loiseau.lucien@gmail.com'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     NAME = 'googletranslate'
     DESCRIPTION = u'Google translation web service'

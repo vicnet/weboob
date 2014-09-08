@@ -24,7 +24,8 @@ import re
 
 from weboob.capabilities.bank import Account
 from weboob.capabilities.base import NotAvailable
-from weboob.tools.browser2.page import HTMLPage, LoggedPage, method, ListElement, ItemElement
+from weboob.tools.browser2.page import HTMLPage, LoggedPage, method
+from weboob.tools.browser2.elements import ListElement, ItemElement
 from weboob.tools.browser2.filters import Attr, CleanText, CleanDecimal, Filter, Field, MultiFilter, Date, Lower
 from weboob.tools.capabilities.bank.transactions import FrenchTransaction
 
@@ -87,6 +88,8 @@ class INGDate(Date):
             return (date.today() - timedelta(days=1))
         elif txt == "aujourd'hui":
             return date.today()
+        elif txt == 'demain':
+            return (date.today() + timedelta(days=1))
         else:
             frenchmonth = txt.split(' ')[1]
             month = self.monthvalue[frenchmonth]
@@ -126,21 +129,18 @@ class AccountsList(LoggedPage, HTMLPage):
             obj_label = CleanText('span[@class="title"]')
             obj_id = AddPref(Field('_id'), Field('label'))
             obj_type = AddType(Field('label'))
-            obj_balance = CleanDecimal('span[@class="solde"]/label')
+            obj_balance = CleanDecimal('span[@class="solde"]/label', replace_dots=True)
             obj_coming = NotAvailable
             obj__jid = Attr('//input[@name="javax.faces.ViewState"]', 'value')
 
-    @method
-    class get_transactions(ListElement):
-        item_xpath = '//table'
-
+    class generic_transactions(ListElement):
         class item(ItemElement):
             klass = Transaction
 
             obj_id = None  # will be overwrited by the browser
             # we use lower for compatibility with the old website
             obj_raw = Transaction.Raw(Lower('.//td[@class="lbl"]'))
-            obj_amount = CleanDecimal('.//td[starts-with(@class, "amount")]')
+            obj_amount = CleanDecimal('.//td[starts-with(@class, "amount")]', replace_dots=True)
             obj_date = INGDate(CleanText('.//td[@class="date"]'), dayfirst=True)
             obj_rdate = Field('date')
             obj__hash = PreHashmd5(Field('date'), Field('raw'), Field('amount'))
@@ -149,10 +149,22 @@ class AccountsList(LoggedPage, HTMLPage):
             def condition(self):
                 if self.el.find('.//td[@class="date"]') is None:
                     return False
-                if self.page.i < self.env['index']:
+                if self.env['index'] > 0 and self.page.i < self.env['index']:
                     self.page.i += 1
                     return False
                 return True
+
+    @method
+    class get_coming(generic_transactions):
+        item_xpath = '//div[@class="transactions cc future"]//table'
+
+    @method
+    class get_transactions_cc(generic_transactions):
+        item_xpath = '//div[@class="temporaryTransactionList"]//table'
+
+    @method
+    class get_transactions_others(generic_transactions):
+         item_xpath = '//table'
 
     def get_history_jid(self):
         span = self.doc.xpath('//span[@id="index:panelASV"]')

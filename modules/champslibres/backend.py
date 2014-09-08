@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.library import ICapBook
+from weboob.capabilities.library import CapBook
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword, Value
 
@@ -28,11 +28,11 @@ from .browser import ChampslibresBrowser
 __all__ = ['ChampslibresBackend']
 
 
-class ChampslibresBackend(BaseBackend, ICapBook):
+class ChampslibresBackend(BaseBackend, CapBook):
     NAME = 'champslibres'
     MAINTAINER = u'Florent Fourcot'
     EMAIL = 'weboob@flo.fourcot.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'Champs Libres (Rennes) Library'
     LICENSE = 'AGPLv3+'
     CONFIG = BackendConfig(Value('login', label='Account ID', regexp='^\d{1,15}|$'),

@@ -17,34 +17,34 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from datetime import time, datetime, timedelta
-
+from datetime import datetime, timedelta
+import time
 from weboob.tools.value import Value, ValueBackendPassword
 from weboob.tools.backend import BaseBackend, BackendConfig
-from weboob.capabilities.messages import ICapMessages, Thread, ICapMessagesPost
-from weboob.capabilities.collection import ICapCollection, CollectionNotFound, Collection
+from weboob.capabilities.messages import CapMessages, Thread, CapMessagesPost
+from weboob.capabilities.collection import CapCollection, CollectionNotFound, Collection
 from weboob.capabilities.base import find_object
 from weboob.tools.exceptions import BrowserForbidden
 from .browser import TwitterBrowser
-
+import itertools
 
 __all__ = ['TwitterBackend']
 
 
-class TwitterBackend(BaseBackend, ICapMessages, ICapMessagesPost, ICapCollection):
+class TwitterBackend(BaseBackend, CapMessages, CapMessagesPost, CapCollection):
     NAME = 'twitter'
     DESCRIPTION = u'twitter website'
     MAINTAINER = u'Bezleputh'
     EMAIL = 'carton_ben@yahoo.fr'
     LICENSE = 'AGPLv3+'
-    VERSION = '0.j'
+    VERSION = '1.0'
     BROWSER = TwitterBrowser
     STORAGE = {'seen': {}}
 
     CONFIG = BackendConfig(Value('username',                label='Username', default=''),
                            ValueBackendPassword('password', label='Password', default=''),
                            Value('hashtags_subscribe',      label='Hashtags subscribe', default=''),
-                           Value('search_subscribe',        label='Searh subscribe', default=''),
+                           Value('search_subscribe',        label='Search subscribe', default=''),
                            Value('profils_subscribe',       label='Profils subscribe', default=''))
 
     def create_default_browser(self):
@@ -66,17 +66,17 @@ class TwitterBackend(BaseBackend, ICapMessages, ICapMessagesPost, ICapCollection
             tweets = []
             if profils:
                 for profil in profils.split(','):
-                    for tweet in self.browser.get_tweets_from_profil(profil):
+                    for tweet in itertools.islice(self.browser.get_tweets_from_profil(profil), 0, 20):
                         tweets.append(tweet)
 
             if hashtags:
                 for hashtag in hashtags.split(','):
-                    for tweet in self.browser.get_tweets_from_hashtag(hashtag):
+                    for tweet in itertools.islice(self.browser.get_tweets_from_hashtag(hashtag), 0, 20):
                         tweets.append(tweet)
 
             if searchs:
                 for search in searchs.split(','):
-                    for tweet in self.browser.get_tweets_from_search(search):
+                    for tweet in itertools.islice(self.browser.get_tweets_from_search(search), 0, 20):
                         tweets.append(tweet)
 
             tweets.sort(key=lambda o: o.date, reverse=True)
@@ -92,14 +92,12 @@ class TwitterBackend(BaseBackend, ICapMessages, ICapMessagesPost, ICapCollection
         return self.get_thread(thread.id, thread, getseen)
 
     def set_message_read(self, message):
-        self.storage.set('seen', message.thread.id, 'comments',
-                         self.storage.get('seen',
-                                          message.thread.id,
-                                          'comments', default=[]) + [message.id])
+        self.storage.set('seen', message.thread.id, message.thread.date)
         self.storage.save()
         self._purge_message_read()
 
     def _purge_message_read(self):
+
         lastpurge = self.storage.get('lastpurge', default=0)
 
         if time.time() - lastpurge > 86400:
@@ -109,17 +107,14 @@ class TwitterBackend(BaseBackend, ICapMessages, ICapMessagesPost, ICapCollection
             # we can't directly delete without a "RuntimeError: dictionary changed size during iteration"
             todelete = []
 
-            for id in self.storage.get('seen', default={}):
-                date = self.storage.get('date', id, default=0)
+            for id, date in self.storage.get('seen', default={}).iteritems():
                 # if no date available, create a new one (compatibility with "old" storage)
-                if date == 0:
-                    self.storage.set('date', id, datetime.now())
+                if not date:
+                    self.storage.set('seen', id, datetime.now())
                 elif datetime.now() - date > timedelta(days=60):
                     todelete.append(id)
 
             for id in todelete:
-                self.storage.delete('hash', id)
-                self.storage.delete('date', id)
                 self.storage.delete('seen', id)
             self.storage.save()
 

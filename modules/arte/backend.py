@@ -20,8 +20,8 @@
 
 import re
 
-from weboob.capabilities.video import ICapVideo, BaseVideo
-from weboob.capabilities.collection import ICapCollection, CollectionNotFound, Collection
+from weboob.capabilities.video import CapVideo, BaseVideo
+from weboob.capabilities.collection import CapCollection, CollectionNotFound, Collection
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import Value
 
@@ -32,11 +32,11 @@ from .video import ArteVideo, ArteLiveVideo
 __all__ = ['ArteBackend']
 
 
-class ArteBackend(BaseBackend, ICapVideo, ICapCollection):
+class ArteBackend(BaseBackend, CapVideo, CapCollection):
     NAME = 'arte'
     MAINTAINER = u'Bezleputh'
     EMAIL = 'carton_ben@yahoo.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'Arte French and German TV'
     LICENSE = 'AGPLv3+'
 
@@ -54,10 +54,10 @@ class ArteBackend(BaseBackend, ICapVideo, ICapCollection):
     TRANSLATION  = {'fr': 'F',
                     'en': 'F',
                     'de': 'D',
-                    'hd': 'HQ',
-                    'md': 'MQ',
-                    'sd': 'SQ',
-                    'eq': 'EQ'
+                    'hd': ['HQ', -1],
+                    'md': ['MQ', 2],
+                    'sd': ['SQ', 0],
+                    'ed': ['EQ', 1]
                     }
 
     BROWSER = ArteBrowser
@@ -95,7 +95,7 @@ class ArteBackend(BaseBackend, ICapVideo, ICapCollection):
             else:
                 return self.browser.get_video(_id)
 
-    def search_videos(self, pattern, sortby=ICapVideo.SEARCH_RELEVANCE, nsfw=False):
+    def search_videos(self, pattern, sortby=CapVideo.SEARCH_RELEVANCE, nsfw=False):
         with self.browser:
             return self.browser.search_videos(pattern)
 
@@ -122,6 +122,7 @@ class ArteBackend(BaseBackend, ICapVideo, ICapCollection):
                 if collection.path_level == 0:
                     yield Collection([u'arte-latest'], u'Latest Arte videos')
                     yield Collection([u'arte-live'], u'Arte Web Live videos')
+                    yield Collection([u'arte-program'], u'Arte Programs')
                 if collection.path_level == 1:
                     if collection.split_path == [u'arte-latest']:
                         for video in self.browser.latest_videos():
@@ -129,18 +130,40 @@ class ArteBackend(BaseBackend, ICapVideo, ICapCollection):
                     if collection.split_path == [u'arte-live']:
                         for categorie in self.browser.get_arte_live_categories():
                             yield categorie
+                    if collection.split_path == [u'arte-program']:
+                        for item in self.browser.get_arte_programs():
+                            lang = self.TRANSLATION[self.config['lang'].get()]
+
+                            if lang == 'F':
+                                title = 'titleFR'
+                            elif lang == 'D':
+                                title = 'titleDE'
+                            else:
+                                title = 'name'
+
+                            name = item['clusterId']
+                            if title in item.keys():
+                                name = item[title]
+
+                            yield Collection([u'arte-program', item['clusterId']], u'%s' % name)
                 if collection.path_level == 2:
                     if collection.split_path[0] == u'arte-live':
                         for video in self.browser.live_videos(collection.basename):
+                            yield video
+                    if collection.split_path[0] == u'arte-program':
+                        for video in self.browser.program_videos(collection.split_path[1]):
                             yield video
 
     def validate_collection(self, objs, collection):
         if collection.path_level == 0:
             return
-        if BaseVideo in objs and (collection.split_path == [u'arte-latest'] or collection.split_path == [u'arte-live']):
+        if BaseVideo in objs and (collection.split_path == [u'arte-latest'] or
+                                  collection.split_path == [u'arte-live'] or
+                                  collection.split_path == [u'arte-program']):
             return
-        if BaseVideo in objs and collection.path_level == 2 and collection.split_path[0] == u'arte-live':
+        if BaseVideo in objs and collection.path_level == 2 and (collection.split_path[0] == u'arte-live' or
+                                                                 collection.split_path[0] == u'arte-program'):
             return
         raise CollectionNotFound(collection.split_path)
 
-    OBJECTS = {ArteVideo: fill_video, ArteLiveVideo: fill_video }
+    OBJECTS = {ArteVideo: fill_video, ArteLiveVideo: fill_video}

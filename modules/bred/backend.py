@@ -19,7 +19,7 @@
 
 
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound
+from weboob.capabilities.bank import CapBank, AccountNotFound
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword, Value
 
@@ -29,18 +29,18 @@ from .browser import BredBrowser
 __all__ = ['BredBackend']
 
 
-class BredBackend(BaseBackend, ICapBank):
+class BredBackend(BaseBackend, CapBank):
     NAME = 'bred'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = u'Bred'
     LICENSE = 'AGPLv3+'
     CONFIG = BackendConfig(ValueBackendPassword('login',    label='Identifiant', masked=False),
                            ValueBackendPassword('password', label='Mot de passe'),
-                           Value('website', label="Site d'accès", default='bred',
+                           Value('website', label=u"Site d'accès", default='bred',
                                  choices={'bred': 'BRED', 'dispobank': 'DispoBank'}),
-                           Value('accnum', label='Account number to force (optional)', default='', masked=False)
+                           Value('accnum', label=u'Account number to force (optional)', default='', masked=False)
                           )
     BROWSER = BredBrowser
 

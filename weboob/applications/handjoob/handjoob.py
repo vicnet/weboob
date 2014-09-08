@@ -17,9 +17,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-import sys
 
-from weboob.capabilities.job import ICapJob
+from weboob.capabilities.job import CapJob
 from weboob.tools.application.repl import ReplApplication, defaultcount
 from weboob.tools.application.formatters.iformatter import IFormatter, PrettyFormatter
 
@@ -75,11 +74,11 @@ class JobAdvertListFormatter(PrettyFormatter):
 
 class Handjoob(ReplApplication):
     APPNAME = 'handjoob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2012 Bezleputh'
     DESCRIPTION = "Console application to search for a job."
     SHORT_DESCRIPTION = "search for a job"
-    CAPS = ICapJob
+    CAPS = CapJob
     EXTRA_FORMATTERS = {'job_advert_list': JobAdvertListFormatter,
                         'job_advert': JobAdvertFormatter,
                         }
@@ -123,13 +122,13 @@ class Handjoob(ReplApplication):
         Get information about an advert.
         """
         if not _id:
-            print >>sys.stderr, 'This command takes an argument: %s' % self.get_command_help('info', short=True)
+            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('info', short=True)
             return 2
 
         job_advert = self.get_object(_id, 'get_job_advert')
 
         if not job_advert:
-            print >>sys.stderr, 'Job advert not found: %s' % _id
+            print >>self.stderr, 'Job advert not found: %s' % _id
             return 3
 
         self.start_format()

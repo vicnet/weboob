@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.bill import ICapBill, SubscriptionNotFound,\
+from weboob.capabilities.bill import CapBill, SubscriptionNotFound,\
     BillNotFound, Subscription, Bill
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
@@ -29,11 +29,11 @@ from .browser import Leclercmobile
 __all__ = ['LeclercMobileBackend']
 
 
-class LeclercMobileBackend(BaseBackend, ICapBill):
+class LeclercMobileBackend(BaseBackend, CapBill):
     NAME = 'leclercmobile'
     MAINTAINER = u'Florent Fourcot'
     EMAIL = 'weboob@flo.fourcot.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     DESCRIPTION = 'Leclerc Mobile website'
     CONFIG = BackendConfig(ValueBackendPassword('login',

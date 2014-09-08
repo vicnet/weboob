@@ -21,7 +21,7 @@
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.ordereddict import OrderedDict
 from weboob.tools.value import Value
-from weboob.capabilities.travel import ICapTravel, Station, Departure
+from weboob.capabilities.travel import CapTravel, Station, Departure
 from weboob.capabilities import UserError
 
 from .browser import VoyagesSNCFBrowser
@@ -30,13 +30,13 @@ from .browser import VoyagesSNCFBrowser
 __all__ = ['VoyagesSNCFBackend']
 
 
-class VoyagesSNCFBackend(BaseBackend, ICapTravel):
+class VoyagesSNCFBackend(BaseBackend, CapTravel):
     NAME = 'voyagessncf'
     DESCRIPTION = u'Voyages SNCF'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
     LICENSE = 'AGPLv3+'
-    VERSION = '0.j'
+    VERSION = '1.0'
     CONFIG = BackendConfig(Value('age', label='Passenger age', default='ADULT',
                                  choices=OrderedDict((('ADULT', '26-59 ans'),
                                                       ('SENIOR', '60 et +'),

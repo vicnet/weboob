@@ -19,19 +19,19 @@
 
 
 import time
-from weboob.capabilities.messages import ICapMessages, Message, Thread
+from weboob.capabilities.messages import CapMessages, Message, Thread
 from weboob.capabilities.base import find_object
 from weboob.tools.backend import BaseBackend
 from weboob.tools.newsfeed import Newsfeed
 
 
-class GenericNewspaperBackend(BaseBackend, ICapMessages):
+class GenericNewspaperBackend(BaseBackend, CapMessages):
     """
     GenericNewspaperBackend class
     """
     MAINTAINER = u'Julien Hebert'
     EMAIL = 'juke@free.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     STORAGE = {'seen': {}}
     RSS_FEED = None

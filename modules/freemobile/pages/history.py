@@ -24,7 +24,8 @@ import lxml.html as html
 from datetime import datetime
 from decimal import Decimal
 
-from weboob.tools.browser2.page import HTMLPage, method, ItemElement, ListElement, LoggedPage
+from weboob.tools.browser2.page import HTMLPage, method, LoggedPage
+from weboob.tools.browser2.elements import ItemElement, ListElement
 from weboob.tools.browser2.filters import Date, CleanText, Attr, Filter,\
     CleanDecimal, Regexp, Field, DateTime, Format, Env
 from weboob.capabilities.bill import Detail, Bill
@@ -68,7 +69,7 @@ class DetailsPage(LoggedPage, BadUTF8Page):
 
     def _parse_div(self, divglobal, string, num, inter=False):
         divs = divglobal.xpath('div[@class="detail"]')
-        # Two informations in one div...
+        # Two pieces of information in one div...
         div = divs.pop(0)
         voice = self._parse_voice(div, string, num, inter)
         self.details[num].append(voice)
@@ -83,7 +84,7 @@ class DetailsPage(LoggedPage, BadUTF8Page):
                 detail.label = detail.label + u" (international)"
                 detail.id = detail.id + "-inter"
             detail.infos = CleanText('div[@class="conso"]/p')(div)
-            detail.price = CleanDecimal('div[@class="horsForfait"]/p/span', default=Decimal(0))(div)
+            detail.price = CleanDecimal('div[@class="horsForfait"]/p/span', default=Decimal(0), replace_dots=True)(div)
 
             self.details[num].append(detail)
 
@@ -95,7 +96,7 @@ class DetailsPage(LoggedPage, BadUTF8Page):
         if inter:
             voice.label = voice.label + " (international)"
             voice.id = voice.id + "-inter"
-        voice.price = CleanDecimal('div[@class="horsForfait"]/p/span', default=0)(div)
+        voice.price = CleanDecimal('div[@class="horsForfait"]/p/span', default=Decimal(0), replace_dots=True)(div)
         voice1 = CleanText('.//span[@class="actif"][1]')(voicediv)
         voice2 = CleanText('.//span[@class="actif"][2]')(voicediv)
         voice.infos = unicode(string) % (voice1, voice2)
@@ -154,4 +155,4 @@ class HistoryPage(LoggedPage, BadUTF8Page):
             obj_datetime = DateTime(CleanText('td[1]', symbols=u'à'), dayfirst=True)
             obj_label = Format(u'%s %s %s', CleanText('td[2]'), CleanText('td[3]'),
                                CleanText('td[4]'))
-            obj_price = CleanDecimal('td[5]', default=Decimal(0))
+            obj_price = CleanDecimal('td[5]', default=Decimal(0), replace_dots=True)

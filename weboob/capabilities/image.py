@@ -18,10 +18,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
+from weboob.tools.ordereddict import OrderedDict
 from .base import NotLoaded, Field, BytesField
-from .file import ICapFile, BaseFile
+from .file import CapFile, BaseFile
 
-__all__ = ['BaseImage', 'ICapImage']
+__all__ = ['BaseImage', 'CapImage']
 
 class _BaseImage(BaseFile):
     """
@@ -38,20 +39,29 @@ class BaseImage(_BaseImage):
     thumbnail = Field('Thumbnail of the image', _BaseImage)
     data =      BytesField('Data of image')
 
-    def __str__(self):
-        return self.url
-
-    def __repr__(self):
-        return '<Image url="%s">' % self.url
-
     def __iscomplete__(self):
         return self.data is not NotLoaded
 
-class ICapImage(ICapFile):
+    def to_dict(self):
+        def iter_decorate(d):
+            for key, value in d:
+                if key == 'data':
+                    continue
+
+                if key == 'id' and self.backend is not None:
+                    value = self.fullid
+
+                yield key, value
+
+        fields_iterator = self.iter_fields()
+        return OrderedDict(iter_decorate(fields_iterator))
+
+
+class CapImage(CapFile):
     """
     Image file provider
     """
-    def search_image(self, pattern, sortby=ICapFile.SEARCH_RELEVANCE, nsfw=False):
+    def search_image(self, pattern, sortby=CapFile.SEARCH_RELEVANCE, nsfw=False):
         """
         search for an image file
 

@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound
+from weboob.capabilities.bank import CapBank, AccountNotFound
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 
@@ -28,11 +28,11 @@ from .browser import Cmso
 __all__ = ['CmsoBackend']
 
 
-class CmsoBackend(BaseBackend, ICapBank):
+class CmsoBackend(BaseBackend, CapBank):
     NAME = 'cmso'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = u'Crédit Mutuel Sud-Ouest'
     LICENSE = 'AGPLv3+'
     CONFIG = BackendConfig(ValueBackendPassword('login',    label='Identifiant', masked=False),

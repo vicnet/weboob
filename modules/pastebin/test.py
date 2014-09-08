@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright(C) 2011 Laurent Bachelier
+# Copyright(C) 2011-2014 Laurent Bachelier
 #
 # This file is part of weboob.
 #
@@ -17,9 +17,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.tools.test import BackendTest
+from nose.plugins.skip import SkipTest
+
 from weboob.capabilities.base import NotLoaded
 from weboob.capabilities.paste import PasteNotFound
+from weboob.tools.test import BackendTest
+
+from .browser import LimitExceeded
 
 
 class PastebinTest(BackendTest):
@@ -34,6 +38,7 @@ class PastebinTest(BackendTest):
             assert p.page_url == 'http://pastebin.com/7HmXwzyt'
             assert p.contents == u'prout'
             assert p.public is True
+            assert p._date.year == 2011
 
             # raw method
             p = self.backend.get_paste(_id)
@@ -44,18 +49,27 @@ class PastebinTest(BackendTest):
             assert p.public is NotLoaded
 
     def test_post(self):
-        p = self.backend.new_paste(None, title=u'ouiboube', contents=u'Weboob Test', public=True)
-        self.backend.post_paste(p, max_age=600)
+        # we cannot test public pastes, as the website sometimes forces them as private
+        # there seems to be a very low post per day limit, even when logged in
+        p = self.backend.new_paste(None, title=u'ouiboube', contents=u'Weboob Test', public=False)
+        try:
+            self.backend.post_paste(p, max_age=600)
+        except LimitExceeded:
+            raise SkipTest("Limit exceeded")
         assert p.id
+        assert not p.id.startswith('http://')
         self.backend.fill_paste(p, ['title'])
         assert p.title == u'ouiboube'
         assert p.id in p.page_url
-        assert p.public is True
+        assert p.public is False
 
     def test_specialchars(self):
         # post a paste and get the contents through the HTML response
         p1 = self.backend.new_paste(None, title=u'ouiboube', contents=u'Weboob <test>¿¡', public=False)
-        self.backend.post_paste(p1, max_age=600)
+        try:
+            self.backend.post_paste(p1, max_age=600)
+        except LimitExceeded:
+            raise SkipTest("Limit exceeded")
         assert p1.id
         # not related to testing special chars, but check if the paste is
         # really private since test_post() tests the contrary

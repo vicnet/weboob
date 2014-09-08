@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.recipe import ICapRecipe, Recipe
+from weboob.capabilities.recipe import CapRecipe, Recipe
 from weboob.tools.backend import BaseBackend
 
 from .browser import MarmitonBrowser
@@ -27,11 +27,11 @@ from urllib import quote_plus
 __all__ = ['MarmitonBackend']
 
 
-class MarmitonBackend(BaseBackend, ICapRecipe):
+class MarmitonBackend(BaseBackend, CapRecipe):
     NAME = 'marmiton'
     MAINTAINER = u'Julien Veyssier'
     EMAIL = 'julien.veyssier@aiur.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = u'Marmiton French recipe website'
     LICENSE = 'AGPLv3+'
     BROWSER = MarmitonBrowser

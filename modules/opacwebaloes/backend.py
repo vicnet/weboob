@@ -20,7 +20,7 @@
 
 
 
-from weboob.capabilities.library import ICapBook
+from weboob.capabilities.library import CapBook
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword, Value
 
@@ -30,11 +30,11 @@ from .browser import AloesBrowser
 __all__ = ['AloesBackend']
 
 
-class AloesBackend(BaseBackend, ICapBook):
+class AloesBackend(BaseBackend, CapBook):
     NAME = 'opacwebaloes'
     MAINTAINER = u'Jeremy Monnet'
     EMAIL = 'jmonnet@gmail.com'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'Aloes Library software'
     LICENSE = 'AGPLv3+'
     CONFIG = BackendConfig(Value('login',    label='Account ID', regexp='^\d{1,8}\w$'),

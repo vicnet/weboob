@@ -20,10 +20,9 @@
 
 import requests
 import subprocess
-import sys
 import os
 
-from weboob.capabilities.video import ICapVideo, BaseVideo
+from weboob.capabilities.video import CapVideo, BaseVideo
 from weboob.capabilities.base import empty
 from weboob.tools.application.repl import ReplApplication, defaultcount
 from weboob.tools.application.media_player import InvalidMediaPlayer, MediaPlayer, MediaPlayerNotFound
@@ -34,6 +33,7 @@ __all__ = ['Videoob']
 
 class VideoListFormatter(PrettyFormatter):
     MANDATORY_FIELDS = ('id', 'title', 'duration', 'date')
+    DISPLAYED_FIELDS = ('author', 'rating')
 
     def get_title(self, obj):
         return obj.title
@@ -52,12 +52,12 @@ class VideoListFormatter(PrettyFormatter):
 
 class Videoob(ReplApplication):
     APPNAME = 'videoob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2010-2011 Christophe Benz, Romain Bignon, John Obbele'
     DESCRIPTION = "Console application allowing to search for videos on various websites, " \
                   "play and download them and get information."
     SHORT_DESCRIPTION = "search and play videos"
-    CAPS = ICapVideo
+    CAPS = CapVideo
     EXTRA_FORMATTERS = {'video_list': VideoListFormatter}
     COMMANDS_FORMATTERS = {'search': 'video_list',
                            'ls': 'video_list',
@@ -76,14 +76,14 @@ class Videoob(ReplApplication):
 
     def download(self, video, dest, default=None):
         if not video.url:
-            print >>sys.stderr, 'Error: the direct URL is not available.'
+            print >>self.stderr, 'Error: the direct URL is not available.'
             return 4
 
         def check_exec(executable):
             with open('/dev/null', 'w') as devnull:
                 process = subprocess.Popen(['which', executable], stdout=devnull)
                 if process.wait() != 0:
-                    print >>sys.stderr, 'Please install "%s"' % executable
+                    print >>self.stderr, 'Please install "%s"' % executable
                     return False
             return True
 
@@ -100,7 +100,15 @@ class Videoob(ReplApplication):
         elif u'm3u8' == video.ext:
             _dest, _ = os.path.splitext(dest)
             dest = u'%s.%s' % (_dest, 'mp4')
-            args = ('wget',) + tuple(line for line in self.read_url(video.url) if not line.startswith('#')) + ('-O', dest)
+            content = tuple()
+            baseurl = video.url.rpartition('/')[0]
+            for line in self.read_url(video.url):
+                if not line.startswith('#'):
+                    if not line.startswith('http'):
+                        line = u'%s/%s' % (baseurl, line)
+                    content += (line,)
+
+            args = ('wget',) + content + ('-O', dest)
         else:
             if check_exec('wget'):
                 args = ('wget', '-c', video.url, '-O', dest)
@@ -138,7 +146,7 @@ class Videoob(ReplApplication):
         _id, dest = self.parse_command_args(line, 2, 1)
         video = self.get_object(_id, 'get_video', ['url'])
         if not video:
-            print >>sys.stderr, 'Video not found: %s' % _id
+            print >>self.stderr, 'Video not found: %s' % _id
             return 3
 
         return self.download(video, dest)
@@ -155,7 +163,7 @@ class Videoob(ReplApplication):
         Play a video with a found player.
         """
         if not line:
-            print >>sys.stderr, 'This command takes an argument: %s' % self.get_command_help('play', short=True)
+            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('play', short=True)
             return 2
 
         ret = 0
@@ -169,10 +177,10 @@ class Videoob(ReplApplication):
 
     def play(self, video, _id):
         if not video:
-            print >>sys.stderr, 'Video not found: %s' % _id
+            print >>self.stderr, 'Video not found: %s' % _id
             return 3
         if not video.url:
-            print >>sys.stderr, 'Error: the direct URL is not available.'
+            print >>self.stderr, 'Error: the direct URL is not available.'
             return 4
         try:
             player_name = self.config.get('media_player')
@@ -196,14 +204,14 @@ class Videoob(ReplApplication):
         Get information about a video.
         """
         if not line:
-            print >>sys.stderr, 'This command takes an argument: %s' % self.get_command_help('info', short=True)
+            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('info', short=True)
             return 2
 
         self.start_format()
         for _id in line.split(' '):
             video = self.get_object(_id, 'get_video')
             if not video:
-                print >>sys.stderr, 'Video not found: %s' % _id
+                print >>self.stderr, 'Video not found: %s' % _id
                 return 3
 
             self.format(video)
@@ -231,11 +239,11 @@ class Videoob(ReplApplication):
         """
 
         if not self.interactive:
-            print >>sys.stderr, 'This command can be used only in interactive mode.'
+            print >>self.stderr, 'This command can be used only in interactive mode.'
             return 1
 
         if not line:
-            print >>sys.stderr, 'This command takes an argument: %s' % self.get_command_help('playlist')
+            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('playlist')
             return 2
 
         cmd, args = self.parse_command_args(line, 2, req_n=1)
@@ -245,11 +253,11 @@ class Videoob(ReplApplication):
                 video = self.get_object(_id, 'get_video')
 
                 if not video:
-                    print >>sys.stderr, 'Video not found: %s' % _id
+                    print >>self.stderr, 'Video not found: %s' % _id
                     return 3
 
                 if not video.url:
-                    print >>sys.stderr, 'Error: the direct URL is not available.'
+                    print >>self.stderr, 'Error: the direct URL is not available.'
                     return 4
 
                 self.PLAYLIST.append(video)
@@ -259,11 +267,11 @@ class Videoob(ReplApplication):
                 video_to_remove = self.get_object(_id, 'get_video')
 
                 if not video_to_remove:
-                    print >>sys.stderr, 'Video not found: %s' % _id
+                    print >>self.stderr, 'Video not found: %s' % _id
                     return 3
 
                 if not video_to_remove.url:
-                    print >>sys.stderr, 'Error: the direct URL is not available.'
+                    print >>self.stderr, 'Error: the direct URL is not available.'
                     return 4
 
                 for video in self.PLAYLIST:
@@ -289,7 +297,7 @@ class Videoob(ReplApplication):
             for video in self.PLAYLIST:
                 self.play(video, video.id)
         else:
-            print >>sys.stderr, 'Playlist command only support "add", "remove", "display", "download" and "export" arguments.'
+            print >>self.stderr, 'Playlist command only support "add", "remove", "display", "download" and "export" arguments.'
             return 2
 
     def complete_nsfw(self, text, line, begidx, endidx):
@@ -323,7 +331,7 @@ class Videoob(ReplApplication):
         Search for videos matching a PATTERN.
         """
         if not pattern:
-            print >>sys.stderr, 'This command takes an argument: %s' % self.get_command_help('search', short=True)
+            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('search', short=True)
             return 2
 
         self.change_path([u'search'])

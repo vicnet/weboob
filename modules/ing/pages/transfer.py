@@ -18,7 +18,8 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 from weboob.capabilities.bank import Recipient, AccountNotFound, Transfer
-from weboob.tools.browser2.page import HTMLPage, LoggedPage, ListElement, ItemElement, method
+from weboob.tools.browser2.page import HTMLPage, LoggedPage, method
+from weboob.tools.browser2.elements import ListElement, ItemElement
 from weboob.tools.browser2.filters import CleanText, CleanDecimal, Attr, Format
 from .login import INGVirtKeyboard
 
@@ -143,7 +144,7 @@ class TransferConfirmPage(HTMLPage):
         class item(ItemElement):
             klass = Transfer
 
-            obj_amount = CleanDecimal('.//label[@id="confirmtransferAmount"]')
+            obj_amount = CleanDecimal('.//label[@id="confirmtransferAmount"]', replace_dots=True)
             obj_origin = CleanText('.//span[@id="confirmfromAccount"]')
             obj_recipient = CleanText('.//span[@id="confirmtoAccount"]')
             obj_reason = CleanText('.//span[@id="confirmtransferMotive"]')

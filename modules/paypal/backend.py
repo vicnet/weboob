@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound
+from weboob.capabilities.bank import CapBank, AccountNotFound
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 
@@ -28,11 +28,11 @@ from .browser import Paypal
 __all__ = ['PaypalBackend']
 
 
-class PaypalBackend(BaseBackend, ICapBank):
+class PaypalBackend(BaseBackend, CapBank):
     NAME = 'paypal'
     MAINTAINER = u'Laurent Bachelier'
     EMAIL = 'laurent@bachelier.name'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     DESCRIPTION = u'PayPal'
     CONFIG = BackendConfig(ValueBackendPassword('login',      label='E-mail', masked=False),
@@ -56,5 +56,5 @@ class PaypalBackend(BaseBackend, ICapBank):
 
     def iter_history(self, account):
         with self.browser:
-            for history in self.browser.get_history(account):
+            for history in self.browser.get_download_history(account):
                 yield history

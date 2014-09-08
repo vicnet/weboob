@@ -28,11 +28,11 @@ from weboob.tools.misc import to_unicode
 from weboob.tools.log import getLogger
 
 from weboob.tools.exceptions import ParseError
-from weboob.tools.browser2.page import TableElement, ItemElement
+from weboob.tools.browser2.elements import TableElement, ItemElement
 from weboob.tools.browser2.filters import Filter, CleanText, CleanDecimal, TableCell
 
 
-__all__ = ['FrenchTransaction']
+__all__ = ['FrenchTransaction', 'AmericanTransaction']
 
 
 class classproperty(object):
@@ -103,11 +103,12 @@ class FrenchTransaction(Transaction):
         PATTERN class attribute) with a list containing tuples of regexp
         and the associated type, for example::
 
-        >>> PATTERNS = [(re.compile('^VIR(EMENT)? (?P<text>.*)'), FrenchTransaction.TYPE_TRANSFER),
-        ...             (re.compile('^PRLV (?P<text>.*)'),        FrenchTransaction.TYPE_ORDER),
-        ...             (re.compile('^(?P<text>.*) CARTE \d+ PAIEMENT CB (?P<dd>\d{2})(?P<mm>\d{2}) ?(.*)$'),
-        ...                                                       FrenchTransaction.TYPE_CARD)
-        ...            ]
+            PATTERNS = [(re.compile(r'^VIR(EMENT)? (?P<text>.*)'), FrenchTransaction.TYPE_TRANSFER),
+                        (re.compile(r'^PRLV (?P<text>.*)'),        FrenchTransaction.TYPE_ORDER),
+                        (re.compile(r'^(?P<text>.*) CARTE \d+ PAIEMENT CB (?P<dd>\d{2})(?P<mm>\d{2}) ?(.*)$'),
+                                                                   FrenchTransaction.TYPE_CARD)
+                       ]
+
 
         In regexps, you can define this patterns:
 
@@ -122,7 +123,7 @@ class FrenchTransaction(Transaction):
         self.category = NotAvailable
 
         if '  ' in self.raw:
-            self.category, useless, self.label = [part.strip() for part in self.raw.partition('  ')]
+            self.category, _, self.label = [part.strip() for part in self.raw.partition('  ')]
         else:
             self.label = self.raw
 
@@ -296,21 +297,46 @@ class FrenchTransaction(Transaction):
             return Account.get_currency(text)
 
     class Amount(Filter):
-        def __init__(self, credit, debit=None):
+        def __init__(self, credit, debit=None, replace_dots=True):
             self.credit_selector = credit
             self.debit_selector = debit
+            self.replace_dots = replace_dots
 
         def __call__(self, item):
             if self.debit_selector:
                 try:
-                    return - abs(CleanDecimal(self.debit_selector)(item))
+                    return - abs(CleanDecimal(self.debit_selector, replace_dots=self.replace_dots)(item))
                 except InvalidOperation:
                     pass
 
             if self.credit_selector:
                 try:
-                    return CleanDecimal(self.credit_selector)(item)
+                    return CleanDecimal(self.credit_selector, replace_dots=self.replace_dots)(item)
                 except InvalidOperation:
                     pass
 
             return Decimal('0')
+
+
+class AmericanTransaction(Transaction):
+    """
+    Transaction with some helpers for american bank websites.
+    """
+    @classmethod
+    def clean_amount(klass, text):
+        """
+        Clean a string containing an amount.
+        """
+        # Convert "American" UUU.CC format to "French" UUU,CC format
+        if re.search(r'\d\.\d\d(?: [A-Z]+)?$', text):
+            text = text.replace(',', ' ').replace('.', ',')
+        return FrenchTransaction.clean_amount(text)
+
+def test():
+    clean_amount = AmericanTransaction.clean_amount
+    assert clean_amount('42') == '42'
+    assert clean_amount('42,12') == '42.12'
+    assert clean_amount('42.12') == '42.12'
+    assert clean_amount('$42.12 USD') == '42.12'
+    assert clean_amount('$12.442,12 USD') == '12442.12'
+    assert clean_amount('$12,442.12 USD') == '12442.12'

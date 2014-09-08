@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound
+from weboob.capabilities.bank import CapBank, AccountNotFound
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 from weboob.capabilities.base import find_object
@@ -28,13 +28,13 @@ from .browser import GroupamaesBrowser
 __all__ = ['GroupamaesBackend']
 
 
-class GroupamaesBackend(BaseBackend, ICapBank):
+class GroupamaesBackend(BaseBackend, CapBank):
     NAME = 'groupamaes'
     DESCRIPTION = u"Groupama Épargne Salariale"
     MAINTAINER = u'Bezleputh'
     EMAIL = 'carton_ben@yahoo.fr'
     LICENSE = 'AGPLv3+'
-    VERSION = '0.j'
+    VERSION = '1.0'
 
     BROWSER = GroupamaesBrowser
 

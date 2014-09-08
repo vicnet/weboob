@@ -18,9 +18,9 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound,\
+from weboob.capabilities.bank import CapBank, AccountNotFound,\
     Account, Recipient
-from weboob.capabilities.bill import ICapBill, Bill, Subscription,\
+from weboob.capabilities.bill import CapBill, Bill, Subscription,\
     SubscriptionNotFound, BillNotFound
 from weboob.capabilities.base import UserError, find_object
 from weboob.tools.backend import BaseBackend, BackendConfig
@@ -31,11 +31,11 @@ from .browser import IngBrowser
 __all__ = ['INGBackend']
 
 
-class INGBackend(BaseBackend, ICapBank, ICapBill):
+class INGBackend(BaseBackend, CapBank, CapBill):
     NAME = 'ing'
     MAINTAINER = u'Florent Fourcot'
     EMAIL = 'weboob@flo.fourcot.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     DESCRIPTION = 'ING Direct'
     CONFIG = BackendConfig(ValueBackendPassword('login',
@@ -95,6 +95,11 @@ class INGBackend(BaseBackend, ICapBank, ICapBill):
         if not isinstance(account, Account):
             account = self.get_account(account)
         return self.browser.get_investments(account)
+
+    def iter_coming(self, account):
+        if not isinstance(account, Account):
+            account = self.get_account(account)
+        return self.browser.get_coming(account)
 
     def iter_subscription(self):
         return self.browser.get_subscriptions()

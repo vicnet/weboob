@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.weather import ICapWeather
+from weboob.capabilities.weather import CapWeather
 from weboob.tools.backend import BaseBackend
 
 from .browser import MeteofranceBrowser
@@ -27,11 +27,11 @@ from .browser import MeteofranceBrowser
 __all__ = ['MeteofranceBackend']
 
 
-class MeteofranceBackend(BaseBackend, ICapWeather):
+class MeteofranceBackend(BaseBackend, CapWeather):
     NAME = 'meteofrance'
     MAINTAINER = u'Cedric Defortis'
     EMAIL = 'cedric@aiur.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'Get forecasts from the MeteoFrance website'
     LICENSE = 'AGPLv3+'
     BROWSER = MeteofranceBrowser

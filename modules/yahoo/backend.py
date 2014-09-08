@@ -22,7 +22,7 @@ from xml.dom import minidom
 from dateutil.parser import parse as parse_dt
 
 
-from weboob.capabilities.weather import ICapWeather, CityNotFound, Current, Forecast, City
+from weboob.capabilities.weather import CapWeather, CityNotFound, Current, Forecast, City
 from weboob.tools.backend import BaseBackend
 from weboob.tools.browser import StandardBrowser
 
@@ -30,11 +30,11 @@ from weboob.tools.browser import StandardBrowser
 __all__ = ['YahooBackend']
 
 
-class YahooBackend(BaseBackend, ICapWeather):
+class YahooBackend(BaseBackend, CapWeather):
     NAME = 'yahoo'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'Yahoo!'
     LICENSE = 'AGPLv3+'
     BROWSER = StandardBrowser

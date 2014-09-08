@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.parcel import ICapParcel, Parcel, Event
+from weboob.capabilities.parcel import CapParcel, Parcel, Event
 from weboob.capabilities.base import UserError
 from weboob.tools.backend import BaseBackend
 
@@ -27,12 +27,12 @@ from datetime import date
 __all__ = ['ColissimoBackend']
 
 
-class ColissimoBackend(BaseBackend, ICapParcel):
+class ColissimoBackend(BaseBackend, CapParcel):
     NAME = 'colissimo'
     DESCRIPTION = u'Colissimo parcel tracking website'
     MAINTAINER = u'Florent Fourcot'
     EMAIL = 'weboob@flo.fourcot.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
 
     BROWSER = ColissimoBrowser

@@ -20,7 +20,7 @@
 
 
 from weboob.tools.backend import BaseBackend, BackendConfig
-from weboob.capabilities.content import ICapContent, Content
+from weboob.capabilities.content import CapContent, Content
 from weboob.tools.value import ValueBackendPassword, Value
 
 
@@ -30,11 +30,11 @@ from .browser import MediawikiBrowser
 __all__ = ['MediawikiBackend']
 
 
-class MediawikiBackend(BaseBackend, ICapContent):
+class MediawikiBackend(BaseBackend, CapContent):
     NAME = 'mediawiki'
     MAINTAINER = u'Clément Schreiner'
     EMAIL = 'clemux@clemux.info'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     DESCRIPTION = 'Wikis running MediaWiki, like Wikipedia'
     CONFIG = BackendConfig(Value('url',      label='URL of the Mediawiki website', default='http://en.wikipedia.org/', regexp='https?://.*'),

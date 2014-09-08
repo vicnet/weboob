@@ -19,7 +19,7 @@
 "backend for http://www.wordreference.com"
 
 
-from weboob.capabilities.translate import ICapTranslate, Translation, TranslationFail, LanguageNotSupported
+from weboob.capabilities.translate import CapTranslate, Translation, TranslationFail, LanguageNotSupported
 from weboob.tools.backend import BaseBackend
 
 from .browser import WordReferenceBrowser
@@ -28,10 +28,10 @@ from .browser import WordReferenceBrowser
 __all__ = ['WordReferenceBackend']
 
 
-class WordReferenceBackend(BaseBackend, ICapTranslate):
+class WordReferenceBackend(BaseBackend, CapTranslate):
     MAINTAINER = u'Lucien Loiseau'
     EMAIL = 'loiseau.lucien@gmail.com'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     NAME = 'wordreference'
     DESCRIPTION = u'Free online translator'

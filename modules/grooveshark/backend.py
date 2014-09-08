@@ -19,8 +19,8 @@
 
 
 from weboob.tools.backend import BaseBackend, BackendConfig
-from weboob.capabilities.audio import ICapAudio, BaseAudio, Album, Playlist, decode_id
-from weboob.capabilities.collection import ICapCollection, CollectionNotFound
+from weboob.capabilities.audio import CapAudio, BaseAudio, Album, Playlist, decode_id
+from weboob.capabilities.collection import CapCollection, CollectionNotFound
 from .browser import GroovesharkBrowser
 from weboob.tools.value import ValueBackendPassword, Value
 
@@ -35,12 +35,12 @@ def cmp_id(p1, p2):
     return -1
 
 
-class GroovesharkBackend(BaseBackend, ICapAudio, ICapCollection):
+class GroovesharkBackend(BaseBackend, CapAudio, CapCollection):
     NAME = 'grooveshark'
     DESCRIPTION = u'Grooveshark music streaming website'
     MAINTAINER = u'Bezleputh'
     EMAIL = 'carton_ben@yahoo.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
 
     BROWSER = GroovesharkBrowser
@@ -63,7 +63,7 @@ class GroovesharkBackend(BaseBackend, ICapAudio, ICapCollection):
             with self.browser:
                 audio.thumbnail.data = self.browser.readurl(audio.thumbnail.url)
 
-    def search_audio(self, pattern, sortby=ICapAudio.SEARCH_RELEVANCE):
+    def search_audio(self, pattern, sortby=CapAudio.SEARCH_RELEVANCE):
         with self.browser:
             return self.browser.search_audio(pattern)
 
@@ -78,7 +78,7 @@ class GroovesharkBackend(BaseBackend, ICapAudio, ICapCollection):
         for song in self.browser.get_all_songs_from_album(_id):
             album.tracks_list.append(song)
 
-    def search_album(self, pattern, sortby=ICapAudio.SEARCH_RELEVANCE):
+    def search_album(self, pattern, sortby=CapAudio.SEARCH_RELEVANCE):
         with self.browser:
             return self.browser.search_albums(pattern)
 
@@ -99,7 +99,7 @@ class GroovesharkBackend(BaseBackend, ICapAudio, ICapCollection):
         for song in self.browser.get_all_songs_from_playlist(_id):
             playlist.tracks_list.append(song)
 
-    def search_playlist(self, pattern, sortby=ICapAudio.SEARCH_RELEVANCE):
+    def search_playlist(self, pattern, sortby=CapAudio.SEARCH_RELEVANCE):
         with self.browser:
             lower_pattern = pattern.lower()
             for playlist in self.browser.get_all_user_playlists():
@@ -118,11 +118,12 @@ class GroovesharkBackend(BaseBackend, ICapAudio, ICapCollection):
 
     def iter_resources(self, objs, split_path):
         with self.browser:
-            if Playlist in objs:
-                self._restrict_level(split_path)
-            if self.browser.is_logged():
-                for item in self.browser.get_all_user_playlists():
-                    yield item
+            if len(split_path)  == 0:
+                if Playlist in objs:
+                    self._restrict_level(split_path)
+                if self.browser.is_logged():
+                    for item in self.browser.get_all_user_playlists():
+                        yield item
 
     def validate_collection(self, objs, collection):
         if collection.path_level == 0:

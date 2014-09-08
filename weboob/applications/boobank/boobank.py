@@ -23,10 +23,9 @@ import datetime, uuid
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse as parse_date
 from decimal import Decimal, InvalidOperation
-import sys
 
 from weboob.capabilities.base import empty
-from weboob.capabilities.bank import ICapBank, Account, Transaction
+from weboob.capabilities.bank import CapBank, Account, Transaction
 from weboob.tools.application.repl import ReplApplication, defaultcount
 from weboob.tools.application.formatters.iformatter import IFormatter, PrettyFormatter
 
@@ -36,7 +35,7 @@ __all__ = ['Boobank']
 
 class OfxFormatter(IFormatter):
     MANDATORY_FIELDS = ('id', 'date', 'raw', 'amount', 'category')
-    TYPES_ACCTS = ['', 'CHECKING', 'SAVINGS', 'DEPOSIT', 'LOAN', 'MARKET', 'JOINT']
+    TYPES_ACCTS = ['', 'CHECKING', 'SAVINGS', 'DEPOSIT', 'LOAN', 'MARKET', 'JOINT', 'CARD']
     TYPES_TRANS = ['', 'DIRECTDEP', 'PAYMENT', 'CHECK', 'DEP', 'OTHER', 'ATM', 'POS', 'INT', 'FEE']
     TYPES_CURRS = ['', 'EUR', 'CHF', 'USD']
 
@@ -61,11 +60,15 @@ class OfxFormatter(IFormatter):
         self.output(u'<DTSERVER>%s113942<LANGUAGE>ENG</SONRS></SIGNONMSGSRSV1>' % datetime.date.today().strftime('%Y%m%d'))
         self.output(u'<BANKMSGSRSV1><STMTTRNRS><TRNUID>%s' % uuid.uuid1())
         self.output(u'<STATUS><CODE>0<SEVERITY>INFO</STATUS><CLTCOOKIE>null<STMTRS>')
-        self.output(u'<CURDEF>%s<BANKACCTFROM>' % 'EUR') #account.currency_text)
+        self.output(u'<CURDEF>%s<BANKACCTFROM>' % (account.currency or 'EUR'))
         self.output(u'<BANKID>null')
         self.output(u'<BRANCHID>null')
         self.output(u'<ACCTID>%s' % account.id)
-        self.output(u'<ACCTTYPE>%s' % (self.TYPES_ACCTS[account.type] or 'CHECKING'))
+        try:
+            account_type = self.TYPES_ACCTS[account.type]
+        except IndexError:
+            account_type = ''
+        self.output(u'<ACCTTYPE>%s' % (account_type or 'CHECKING'))
         self.output(u'<ACCTKEY>null</BANKACCTFROM>')
         self.output(u'<BANKTRANLIST>')
         self.output(u'<DTSTART>%s' % datetime.date.today().strftime('%Y%m%d'))
@@ -172,6 +175,7 @@ class TransactionsFormatter(IFormatter):
 
 class TransferFormatter(IFormatter):
     MANDATORY_FIELDS = ('id', 'date', 'origin', 'recipient', 'amount')
+    DISPLAYED_FIELDS = ('reason', )
 
     def format_obj(self, obj, alias):
         result = u'------- Transfer %s -------\n' % obj.fullid
@@ -186,6 +190,7 @@ class TransferFormatter(IFormatter):
 
 class InvestmentFormatter(IFormatter):
     MANDATORY_FIELDS = ('label', 'quantity', 'unitvalue')
+    DISPLAYED_FIELDS = ('code', 'diff')
 
     tot_valuation = Decimal(0)
     tot_diff = Decimal(0)
@@ -209,7 +214,7 @@ class InvestmentFormatter(IFormatter):
                  self.colored('%6d' % obj.quantity, 'yellow'),
                  self.colored('%11.2f' % obj.unitvalue, 'yellow'),
                  self.colored('%11.2f' % obj.valuation, 'yellow'),
-                 self.colored('%8.2f' % diff, 'green' if diff >=0 else 'red')
+                 self.colored('%8.2f' % diff, 'green' if diff >= 0 else 'red')
                  )
 
     def flush(self):
@@ -276,9 +281,9 @@ class AccountListFormatter(IFormatter):
 
 class Boobank(ReplApplication):
     APPNAME = 'boobank'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2010-2011 Romain Bignon, Christophe Benz'
-    CAPS = ICapBank
+    CAPS = CapBank
     DESCRIPTION = "Console application allowing to list your bank accounts and get their balance, " \
                   "display accounts history and coming bank operations, and transfer money from an account to " \
                   "another (if available)."
@@ -322,7 +327,7 @@ class Boobank(ReplApplication):
 
         account = self.get_object(id, 'get_account', [])
         if not account:
-            print('Error: account "%s" not found (Hint: try the command "list")' % id, file=sys.stderr)
+            print('Error: account "%s" not found (Hint: try the command "list")' % id, file=self.stderr)
             return 2
 
         if end_date is not None:
@@ -330,7 +335,7 @@ class Boobank(ReplApplication):
                 end_date = parse_date(end_date)
             except ValueError:
                 print('"%s" is an incorrect date format (for example "%s")' % \
-                            (end_date, (datetime.date.today() - relativedelta(months=1)).strftime('%Y-%m-%d')), file=sys.stderr)
+                            (end_date, (datetime.date.today() - relativedelta(months=1)).strftime('%Y-%m-%d')), file=self.stderr)
                 return 3
             old_count = self.options.count
             self.options.count = None
@@ -400,7 +405,7 @@ class Boobank(ReplApplication):
 
         account = self.get_object(id_from, 'get_account', [])
         if not account:
-            print('Error: account %s not found' % id_from, file=sys.stderr)
+            print('Error: account %s not found' % id_from, file=self.stderr)
             return 1
 
         if not id_to:
@@ -416,13 +421,13 @@ class Boobank(ReplApplication):
         id_to, backend_name_to = self.parse_id(id_to)
 
         if account.backend != backend_name_to:
-            print("Transfer between different backends is not implemented", file=sys.stderr)
+            print("Transfer between different backends is not implemented", file=self.stderr)
             return 4
 
         try:
             amount = Decimal(amount)
         except (TypeError, ValueError, InvalidOperation):
-            print('Error: please give a decimal amount to transfer', file=sys.stderr)
+            print('Error: please give a decimal amount to transfer', file=self.stderr)
             return 2
 
         if self.interactive:
@@ -454,7 +459,7 @@ class Boobank(ReplApplication):
         """
         account = self.get_object(id, 'get_account', [])
         if not account:
-            print('Error: account "%s" not found (Hint: try the command "list")' % id, file=sys.stderr)
+            print('Error: account "%s" not found (Hint: try the command "list")' % id, file=self.stderr)
             return 2
 
         self.start_format()

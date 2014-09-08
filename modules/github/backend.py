@@ -20,7 +20,7 @@
 
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import Value, ValueBackendPassword
-from weboob.capabilities.bugtracker import ICapBugTracker, Issue, Project, User, Version, Status, Update, Attachment
+from weboob.capabilities.bugtracker import CapBugTracker, Issue, Project, User, Version, Status, Update, Attachment
 
 from .browser import GithubBrowser
 
@@ -32,13 +32,13 @@ STATUSES = {'open': Status('open', u'Open', Status.VALUE_NEW),
             'closed': Status('closed', u'closed', Status.VALUE_RESOLVED)}
 # TODO tentatively parse github "labels"?
 
-class GithubBackend(BaseBackend, ICapBugTracker):
+class GithubBackend(BaseBackend, CapBugTracker):
     NAME = 'github'
     DESCRIPTION = u'GitHub issues tracking'
     MAINTAINER = u'Vincent A'
     EMAIL = 'dev@indigo.re'
     LICENSE = 'AGPLv3+'
-    VERSION = '0.j'
+    VERSION = '1.0'
     CONFIG = BackendConfig(Value('username', label='Username', default=''),
                            ValueBackendPassword('password', label='Password', default=''))
 

@@ -21,7 +21,8 @@
 from decimal import Decimal
 
 from weboob.capabilities.bank import Investment
-from weboob.tools.browser2.page import RawPage, HTMLPage, method, ListElement, ItemElement
+from weboob.tools.browser2.page import RawPage, HTMLPage, method
+from weboob.tools.browser2.elements import ListElement, ItemElement
 from weboob.tools.browser2.filters import CleanDecimal, CleanText, Date
 from weboob.tools.capabilities.bank.transactions import FrenchTransaction
 
@@ -69,4 +70,4 @@ class TitreHistory(HTMLPage):
 
             obj_raw = Transaction.Raw('td[4] | td[3]/a')
             obj_date = Date(CleanText('td[2]'), dayfirst=True)
-            obj_amount = CleanDecimal('td[7]')
+            obj_amount = CleanDecimal('td[7]', replace_dots=True)

@@ -20,10 +20,9 @@
 
 
 
-import sys
 
-from weboob.capabilities.pricecomparison import ICapPriceComparison
-from weboob.tools.misc import html2text
+from weboob.capabilities.pricecomparison import CapPriceComparison
+from weboob.tools.html import html2text
 from weboob.tools.application.repl import ReplApplication
 from weboob.tools.application.formatters.iformatter import IFormatter, PrettyFormatter
 
@@ -77,7 +76,7 @@ class PricesFormatter(PrettyFormatter):
 
 class Comparoob(ReplApplication):
     APPNAME = 'comparoob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2012 Romain Bignon'
     DESCRIPTION = "Console application to compare products."
     SHORT_DESCRIPTION = "compare products"
@@ -88,7 +87,7 @@ class Comparoob(ReplApplication):
     COMMANDS_FORMATTERS = {'prices':    'prices',
                            'info':      'price',
                           }
-    CAPS = ICapPriceComparison
+    CAPS = CapPriceComparison
 
     def do_prices(self, pattern):
         """
@@ -109,7 +108,7 @@ class Comparoob(ReplApplication):
 
         product = None
         if len(products) == 0:
-            print >>sys.stderr, 'Error: no product found with this pattern'
+            print >>self.stderr, 'Error: no product found with this pattern'
             return 1
         elif len(products) == 1:
             product = products[0]
@@ -147,12 +146,12 @@ class Comparoob(ReplApplication):
         Get information about a product.
         """
         if not _id:
-            print >>sys.stderr, 'This command takes an argument: %s' % self.get_command_help('info', short=True)
+            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('info', short=True)
             return 2
 
         price = self.get_object(_id, 'get_price')
         if not price:
-            print >>sys.stderr, 'Price not found: %s' % _id
+            print >>self.stderr, 'Price not found: %s' % _id
             return 3
 
         self.start_format()

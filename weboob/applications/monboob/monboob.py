@@ -26,7 +26,6 @@ from email import message_from_file, message_from_string
 from smtpd import SMTPServer
 import time
 import re
-import sys
 import logging
 import asyncore
 import subprocess
@@ -34,9 +33,11 @@ import socket
 
 from weboob.core import Weboob, CallErrors
 from weboob.core.scheduler import Scheduler
-from weboob.capabilities.messages import ICapMessages, ICapMessagesPost, Thread, Message
+from weboob.capabilities.messages import CapMessages, CapMessagesPost, Thread, Message
 from weboob.tools.application.repl import ReplApplication
-from weboob.tools.misc import html2text, get_backtrace, utc2local, to_unicode
+from weboob.tools.date import utc2local
+from weboob.tools.html import html2text
+from weboob.tools.misc import get_backtrace, to_unicode
 
 
 __all__ = ['Monboob']
@@ -87,7 +88,7 @@ class MonboobScheduler(Scheduler):
 
 class Monboob(ReplApplication):
     APPNAME = 'monboob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2010-2011 Romain Bignon'
     DESCRIPTION = 'Daemon allowing to regularly check for new messages on various websites, ' \
                   'and send an email for each message, and post a reply to a message on a website.'
@@ -98,7 +99,7 @@ class Monboob(ReplApplication):
               'smtp':      'localhost',
               'pipe':      '',
               'html':      0}
-    CAPS = ICapMessages
+    CAPS = CapMessages
     DISABLE_REPL = True
 
     def add_application_options(self, group):
@@ -108,7 +109,7 @@ class Monboob(ReplApplication):
         return Weboob(scheduler=MonboobScheduler(self))
 
     def load_default_backends(self):
-        self.load_backends(ICapMessages, storage=self.create_storage())
+        self.load_backends(CapMessages, storage=self.create_storage())
 
     def main(self, argv):
         self.load_config()
@@ -117,7 +118,7 @@ class Monboob(ReplApplication):
             if self.config.get('interval') < 1:
                 raise ValueError()
         except ValueError:
-            print >>sys.stderr, 'Configuration error: interval must be an integer >0.'
+            print >>self.stderr, 'Configuration error: interval must be an integer >0.'
             return 1
 
         try:
@@ -125,7 +126,7 @@ class Monboob(ReplApplication):
             if self.config.get('html') not in (0, 1):
                 raise ValueError()
         except ValueError:
-            print >>sys.stderr, 'Configuration error: html must be 0 or 1.'
+            print >>self.stderr, 'Configuration error: html must be 0 or 1.'
             return 2
 
         return ReplApplication.main(self, argv)
@@ -149,7 +150,7 @@ class Monboob(ReplApplication):
 
         Pipe with a mail to post message.
         """
-        msg = message_from_file(sys.stdin)
+        msg = message_from_file(self.stdin)
         return self.process_incoming_mail(msg)
 
     def process_incoming_mail(self, msg):
@@ -188,7 +189,7 @@ class Monboob(ReplApplication):
                         break
 
         if len(content) == 0:
-            print >>sys.stderr, 'Unable to send an empty message'
+            print >>self.stderr, 'Unable to send an empty message'
             return 1
 
         # remove signature
@@ -208,7 +209,7 @@ class Monboob(ReplApplication):
                 bname, id = reply_to.split('.', 1)
                 thread_id, parent_id = id.rsplit('.', 1)
             except ValueError:
-                print >>sys.stderr, 'In-Reply-To header might be in form <backend.thread_id.message_id>'
+                print >>self.stderr, 'In-Reply-To header might be in form <backend.thread_id.message_id>'
                 return 1
 
             # Default use the To header field to know the backend to use.
@@ -218,11 +219,11 @@ class Monboob(ReplApplication):
         try:
             backend = self.weboob.backend_instances[bname]
         except KeyError:
-            print >>sys.stderr, 'Backend %s not found' % bname
+            print >>self.stderr, 'Backend %s not found' % bname
             return 1
 
-        if not backend.has_caps(ICapMessagesPost):
-            print >>sys.stderr, 'The backend %s does not implement ICapMessagesPost' % bname
+        if not backend.has_caps(CapMessagesPost):
+            print >>self.stderr, 'The backend %s does not implement CapMessagesPost' % bname
             return 1
 
         thread = Thread(thread_id)

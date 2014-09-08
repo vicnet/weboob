@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.bill import ICapBill, Subscription, SubscriptionNotFound, Detail
+from weboob.capabilities.bill import CapBill, Subscription, SubscriptionNotFound, Detail
 from weboob.capabilities.base import find_object
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
@@ -29,11 +29,11 @@ from .browser import PoivyBrowser
 __all__ = ['PoivyBackend']
 
 
-class PoivyBackend(BaseBackend, ICapBill):
+class PoivyBackend(BaseBackend, CapBill):
     NAME = 'poivy'
     MAINTAINER = u'Florent Fourcot'
     EMAIL = 'weboob@flo.fourcot.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     DESCRIPTION = 'Poivy website'
     CONFIG = BackendConfig(ValueBackendPassword('login',

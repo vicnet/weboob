@@ -19,10 +19,9 @@
 
 
 
-import sys
 import codecs
 
-from weboob.capabilities.recipe import ICapRecipe
+from weboob.capabilities.recipe import CapRecipe
 from weboob.capabilities.base import empty
 from weboob.tools.application.repl import ReplApplication, defaultcount
 from weboob.tools.application.formatters.iformatter import IFormatter, PrettyFormatter
@@ -75,11 +74,11 @@ class RecipeListFormatter(PrettyFormatter):
 
 class Cookboob(ReplApplication):
     APPNAME = 'cookboob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2013 Julien Veyssier'
     DESCRIPTION = "Console application allowing to search for recipes on various websites."
     SHORT_DESCRIPTION = "search and consult recipes"
-    CAPS = ICapRecipe
+    CAPS = CapRecipe
     EXTRA_FORMATTERS = {'recipe_list': RecipeListFormatter,
                         'recipe_info': RecipeInfoFormatter
                         }
@@ -100,7 +99,7 @@ class Cookboob(ReplApplication):
         """
         recipe = self.get_object(id, 'get_recipe')
         if not recipe:
-            print >>sys.stderr, 'Recipe not found: %s' % id
+            print >>self.stderr, 'Recipe not found: %s' % id
             return 3
 
         self.start_format()
@@ -141,10 +140,10 @@ class Cookboob(ReplApplication):
                     with codecs.open(dest, 'w', 'utf-8') as f:
                         f.write(xmlstring)
                 except IOError as e:
-                    print >>sys.stderr, 'Unable to write .kreml in "%s": %s' % (dest, e)
+                    print >>self.stderr, 'Unable to write .kreml in "%s": %s' % (dest, e)
                     return 1
             return
-        print >>sys.stderr, 'Recipe "%s" not found' % id
+        print >>self.stderr, 'Recipe "%s" not found' % id
         return 3
 
     @defaultcount(10)

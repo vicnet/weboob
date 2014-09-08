@@ -18,7 +18,6 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-import sys
 
 from weboob.tools.application.repl import ReplApplication
 
@@ -28,7 +27,7 @@ __all__ = ['WeboobCli']
 
 class WeboobCli(ReplApplication):
     APPNAME = 'weboob-cli'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2010-2011 Romain Bignon'
     SYNOPSIS =  'Usage: %prog [-dqv] [-b backends] [-cnfs] capability method [arguments..]\n'
     SYNOPSIS += '       %prog [--help] [--version]'
@@ -42,7 +41,7 @@ class WeboobCli(ReplApplication):
 
     def main(self, argv):
         if len(argv) < 3:
-            print >>sys.stderr, "Syntax: %s capability method [args ..]" % argv[0]
+            print >>self.stderr, "Syntax: %s capability method [args ..]" % argv[0]
             return 2
 
         cap_s = argv[1]

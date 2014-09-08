@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound
+from weboob.capabilities.bank import CapBank, AccountNotFound
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword, Value
 
@@ -29,11 +29,11 @@ from .pro.browser import CreditCooperatif as CreditCooperatifPro
 __all__ = ['CreditCooperatifBackend']
 
 
-class CreditCooperatifBackend(BaseBackend, ICapBank):
+class CreditCooperatifBackend(BaseBackend, CapBank):
     NAME = 'creditcooperatif'
     MAINTAINER = u'Kevin Pouget'
     EMAIL = 'weboob@kevin.pouget.me'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = u'Crédit Coopératif'
     LICENSE = 'AGPLv3+'
     auth_type = {'particular': "Interface Particuliers",

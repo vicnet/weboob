@@ -17,9 +17,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-
-from datetime import date as real_date, datetime as real_datetime, timedelta
 import dateutil.parser
+from datetime import date as real_date, datetime as real_datetime, timedelta
 import time
 import re
 try:
@@ -237,7 +236,7 @@ DATE_TRANSLATE_FR = [(re.compile(ur'janvier', re.I),   ur'january'),
                      (re.compile(ur'mai', re.I),       ur'may'),
                      (re.compile(ur'juin', re.I),      ur'june'),
                      (re.compile(ur'juillet', re.I),   ur'july'),
-                     (re.compile(ur'août', re.I),      ur'august'),
+                     (re.compile(ur'août?', re.I),      ur'august'),
                      (re.compile(ur'septembre', re.I), ur'september'),
                      (re.compile(ur'octobre', re.I),   ur'october'),
                      (re.compile(ur'novembre', re.I),  ur'november'),
@@ -248,6 +247,7 @@ DATE_TRANSLATE_FR = [(re.compile(ur'janvier', re.I),   ur'january'),
                      (re.compile(ur'juil\.', re.I),   ur'july'),
                      (re.compile(ur'juill\.', re.I),   ur'july'),
                      (re.compile(ur'sep\.', re.I), ur'september'),
+                     (re.compile(ur'sept\.', re.I), ur'september'),
                      (re.compile(ur'oct\.', re.I),   ur'october'),
                      (re.compile(ur'nov\.', re.I),  ur'november'),
                      (re.compile(ur'déc\.', re.I),  ur'december'),

@@ -18,16 +18,16 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 "backend for http://www.lesinrocks.com"
 
-from weboob.capabilities.messages import ICapMessages
+from weboob.capabilities.messages import CapMessages
 from weboob.tools.capabilities.messages.GenericBackend import GenericNewspaperBackend
 from .browser import NewspaperInrocksBrowser
 from .tools import rssid
 
 
-class NewspaperInrocksBackend(GenericNewspaperBackend, ICapMessages):
+class NewspaperInrocksBackend(GenericNewspaperBackend, CapMessages):
     MAINTAINER = u'Julien Hebert'
     EMAIL = 'juke@free.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     STORAGE = {'seen': {}}
     NAME = 'inrocks'

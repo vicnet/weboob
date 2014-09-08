@@ -19,9 +19,8 @@
 
 
 
-import sys
 
-from weboob.capabilities.subtitle import ICapSubtitle
+from weboob.capabilities.subtitle import CapSubtitle
 from weboob.capabilities.base import empty
 from weboob.tools.application.repl import ReplApplication, defaultcount
 from weboob.tools.application.formatters.iformatter import IFormatter, PrettyFormatter
@@ -87,12 +86,12 @@ class SubtitleListFormatter(PrettyFormatter):
 
 class Suboob(ReplApplication):
     APPNAME = 'suboob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2013 Julien Veyssier'
     DESCRIPTION = "Console application allowing to search for subtitles on various services " \
                   "and download them."
     SHORT_DESCRIPTION = "search and download subtitles"
-    CAPS = ICapSubtitle
+    CAPS = CapSubtitle
     EXTRA_FORMATTERS = {'subtitle_list': SubtitleListFormatter,
                         'subtitle_info': SubtitleInfoFormatter
                         }
@@ -114,7 +113,7 @@ class Suboob(ReplApplication):
 
         subtitle = self.get_object(id, 'get_subtitle')
         if not subtitle:
-            print >>sys.stderr, 'Subtitle not found: %s' % id
+            print >>self.stderr, 'Subtitle not found: %s' % id
             return 3
 
         self.start_format()
@@ -139,7 +138,7 @@ class Suboob(ReplApplication):
 
         subtitle = self.get_object(id, 'get_subtitle')
         if not subtitle:
-            print >>sys.stderr, 'Subtitle not found: %s' % id
+            print >>self.stderr, 'Subtitle not found: %s' % id
             return 3
 
         if dest is None:
@@ -151,13 +150,13 @@ class Suboob(ReplApplication):
         for backend, buf in self.do('get_subtitle_file', subtitle.id, backends=subtitle.backend):
             if buf:
                 if dest == '-':
-                    sys.stdout.write(buf)
+                    self.stdout.write(buf)
                 else:
                     try:
                         with open(dest, 'w') as f:
                             f.write(buf)
                     except IOError as e:
-                        print >>sys.stderr, 'Unable to write file in "%s": %s' % (dest, e)
+                        print >>self.stderr, 'Unable to write file in "%s": %s' % (dest, e)
                         return 1
                     else:
                         print 'Saved to %s' % dest

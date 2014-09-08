@@ -23,16 +23,15 @@ from email import message_from_string, message_from_file
 from email.Header import decode_header
 from email.mime.text import MIMEText
 from smtplib import SMTP
-import sys
 import os
 import re
 import unicodedata
 
-from weboob.capabilities.base import empty, CapBaseObject
-from weboob.capabilities.bugtracker import ICapBugTracker, Query, Update, Project, Issue, IssueError
+from weboob.capabilities.base import empty, BaseObject
+from weboob.capabilities.bugtracker import CapBugTracker, Query, Update, Project, Issue, IssueError
 from weboob.tools.application.repl import ReplApplication, defaultcount
 from weboob.tools.application.formatters.iformatter import IFormatter, PrettyFormatter
-from weboob.tools.misc import html2text
+from weboob.tools.html import html2text
 from weboob.tools.date import parse_french_date
 
 
@@ -47,7 +46,7 @@ class IssueFormatter(IFormatter):
             return u''
 
         value = getattr(obj, attr)
-        if isinstance(value, CapBaseObject):
+        if isinstance(value, BaseObject):
             value = value.name
 
         return self.format_key(attr.capitalize(), value)
@@ -105,11 +104,11 @@ class IssuesListFormatter(PrettyFormatter):
 
 class BoobTracker(ReplApplication):
     APPNAME = 'boobtracker'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2011 Romain Bignon'
     DESCRIPTION = "Console application allowing to create, edit, view bug tracking issues."
     SHORT_DESCRIPTION = "manage bug tracking issues"
-    CAPS = ICapBugTracker
+    CAPS = CapBugTracker
     EXTRA_FORMATTERS = {'issue_info': IssueFormatter,
                         'issues_list': IssuesListFormatter,
                        }
@@ -157,7 +156,7 @@ class BoobTracker(ReplApplication):
         elif len(path) > 0:
             query.project = path[0]
         else:
-            print >>sys.stderr, 'Please enter a project name'
+            print >>self.stderr, 'Please enter a project name'
             return 1
 
         query.author = self.options.author
@@ -184,12 +183,12 @@ class BoobTracker(ReplApplication):
         Get an issue and display it.
         """
         if not line:
-            print >>sys.stderr, 'This command takes an argument: %s' % self.get_command_help('get', short=True)
+            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('get', short=True)
             return 2
 
         issue = self.get_object(line, 'get_issue')
         if not issue:
-            print >>sys.stderr, 'Issue not found: %s' % line
+            print >>self.stderr, 'Issue not found: %s' % line
             return 3
         self.format(issue)
 
@@ -227,7 +226,7 @@ class BoobTracker(ReplApplication):
         try:
             hours = float(hours)
         except ValueError:
-            print >>sys.stderr, 'Error: HOURS parameter may be a float'
+            print >>self.stderr, 'Error: HOURS parameter may be a float'
             return 1
 
         id, backend_name = self.parse_id(id, unique_backend=True)
@@ -383,16 +382,16 @@ class BoobTracker(ReplApplication):
         backend = self.weboob.get_backend(issue.backend)
         content = self.issue2text(issue, backend)
         while True:
-            if sys.stdin.isatty():
+            if self.stdin.isatty():
                 content = self.acquire_input(content, {'vim': "-c 'set ft=mail'"})
                 m = message_from_string(content.encode('utf-8'))
             else:
-                m = message_from_file(sys.stdin)
+                m = message_from_file(self.stdin)
 
             try:
                 email_to = self.text2issue(issue, m)
             except ValueError as e:
-                if not sys.stdin.isatty():
+                if not self.stdin.isatty():
                     raise
                 raw_input("%s -- Press Enter to continue..." % unicode(e).encode("utf-8"))
                 continue
@@ -407,7 +406,7 @@ class BoobTracker(ReplApplication):
                     self.send_notification(email_to, issue)
                 return 0
             except IssueError as e:
-                if not sys.stdin.isatty():
+                if not self.stdin.isatty():
                     raise
                 raw_input("%s -- Press Enter to continue..." % unicode(e).encode("utf-8"))
 
@@ -482,7 +481,7 @@ Weboob Team
         _id, key, value = self.parse_command_args(line, 3, 1)
         issue = self.get_object(_id, 'get_issue')
         if not issue:
-            print >>sys.stderr, 'Issue not found: %s' % _id
+            print >>self.stderr, 'Issue not found: %s' % _id
             return 3
 
         return self.edit_issue(issue, edit=True)
@@ -500,4 +499,4 @@ Weboob Team
 
         Attach a file to an issue (Not implemented yet).
         """
-        print >>sys.stderr, 'Not implemented yet.'
+        print >>self.stderr, 'Not implemented yet.'

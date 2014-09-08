@@ -17,8 +17,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.video import ICapVideo, BaseVideo
-from weboob.capabilities.collection import ICapCollection, CollectionNotFound
+from weboob.capabilities.video import CapVideo, BaseVideo
+from weboob.capabilities.collection import CapCollection, CollectionNotFound
 from weboob.tools.backend import BaseBackend
 
 from .browser import DailymotionBrowser
@@ -28,11 +28,11 @@ from .video import DailymotionVideo
 __all__ = ['DailymotionBackend']
 
 
-class DailymotionBackend(BaseBackend, ICapVideo, ICapCollection):
+class DailymotionBackend(BaseBackend, CapVideo, CapCollection):
     NAME = 'dailymotion'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'Dailymotion video streaming website'
     LICENSE = 'AGPLv3+'
     BROWSER = DailymotionBrowser
@@ -43,7 +43,7 @@ class DailymotionBackend(BaseBackend, ICapVideo, ICapCollection):
 
     SORTBY = ['relevance', 'rated', 'visited', None]
 
-    def search_videos(self, pattern, sortby=ICapVideo.SEARCH_RELEVANCE, nsfw=False):
+    def search_videos(self, pattern, sortby=CapVideo.SEARCH_RELEVANCE, nsfw=False):
         with self.browser:
             return self.browser.search_videos(pattern, self.SORTBY[sortby])
 

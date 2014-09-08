@@ -20,41 +20,46 @@
 
 
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound
+from weboob.capabilities.bank import CapBank, AccountNotFound
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword, Value
 
-from .browser import LCLBrowser
-from .enterprise.browser import LCLEnterpriseBrowser
+from .browser import LCLBrowser, LCLProBrowser
+from .enterprise.browser import LCLEnterpriseBrowser, LCLEspaceProBrowser
 
 
 __all__ = ['LCLBackend']
 
 
-class LCLBackend(BaseBackend, ICapBank):
+class LCLBackend(BaseBackend, CapBank):
     NAME = 'lcl'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = u'LCL'
     LICENSE = 'AGPLv3+'
     CONFIG = BackendConfig(ValueBackendPassword('login',    label='Identifiant', masked=False),
                            ValueBackendPassword('password', label='Code personnel'),
                            Value('website', label='Type de compte', default='par',
                                  choices={'par': 'Particuliers',
-                                          'ent': 'Entreprises'}))
+                                          'pro': 'Professionnels',
+                                          'ent': 'Entreprises',
+                                          'esp': 'Espace Pro'}))
     BROWSER = LCLBrowser
 
     def create_default_browser(self):
-        website = self.config['website'].get()
-        if website == 'ent':
-            self.BROWSER = LCLEnterpriseBrowser
-            return self.create_browser(self.config['login'].get(),
-                                       self.config['password'].get())
-        else:
-            self.BROWSER = LCLBrowser
-            return self.create_browser(self.config['login'].get(),
-                                       self.config['password'].get())
+        # assume all `website` option choices are defined here
+        browsers = {'par': LCLBrowser,
+                    'pro': LCLProBrowser,
+                    'ent': LCLEnterpriseBrowser,
+                    'esp': LCLEspaceProBrowser}
+
+        website_value = self.config['website']
+        self.BROWSER = browsers.get(website_value.get(),
+                                    browsers[website_value.default])
+
+        return self.create_browser(self.config['login'].get(),
+                                   self.config['password'].get())
 
     def deinit(self):
         # don't need to logout if the browser hasn't been used.

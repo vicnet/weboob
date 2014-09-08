@@ -18,7 +18,8 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.tools.browser2.page import HTMLPage, method, TableElement, ItemElement, LoggedPage
+from weboob.tools.browser2.page import HTMLPage, method, LoggedPage
+from weboob.tools.browser2.elements import TableElement, ItemElement
 from weboob.tools.browser2.filters import CleanText, CleanDecimal, TableCell, Date
 from weboob.capabilities.bank import Account, Transaction
 from weboob.tools.date import LinearDateGuesser
@@ -52,8 +53,7 @@ class AvoirPage(LoggedPage, HTMLPage):
 
             obj_id = CleanText(TableCell('name'))
             obj_label = CleanText(TableCell('name'))
-            #obj_coming = CleanDecimal(TableCell('value'))
-            obj_balance = CleanDecimal(TableCell('value'))
+            obj_balance = CleanDecimal(TableCell('value'), replace_dots=True)
             obj_currency = CleanText(u'//table[@summary="Liste des échéances"]/thead/tr/th/small/text()')
             obj_type = Account.TYPE_UNKNOWN
 
@@ -79,7 +79,7 @@ class OperationsFuturesPage(LoggedPage, HTMLPage):
             obj_date = Date(CleanText(TableCell('date')), LinearDateGuesser())
             obj_type = Transaction.TYPE_UNKNOWN
             obj_label = CleanText(TableCell('operation'))
-            obj_amount = CleanDecimal(TableCell('montant'))
+            obj_amount = CleanDecimal(TableCell('montant'), replace_dots=True)
 
 
 class OperationsTraiteesPage(LoggedPage, HTMLPage):
@@ -101,4 +101,4 @@ class OperationsTraiteesPage(LoggedPage, HTMLPage):
             obj_date = Date(CleanText(TableCell('date')), LinearDateGuesser())
             obj_type = Transaction.TYPE_UNKNOWN
             obj_label = CleanText(TableCell('operation'))
-            obj_amount = CleanDecimal(TableCell('montant'))
+            obj_amount = CleanDecimal(TableCell('montant'), replace_dots=True)

@@ -33,7 +33,7 @@ MODULE_PATH = os.getenv(
 TEMPLATE_PATH = os.getenv(
     'TEMPLATE_PATH',
     os.path.realpath(os.path.join(os.path.dirname(__file__), 'boilerplate_data')))
-VERSION = '0.j'
+VERSION = '1.0'
 
 TEMPLATES = TemplateLookup(directories=[TEMPLATE_PATH])
 
@@ -130,7 +130,7 @@ class CapRecipe(Recipe):
         try:
             self.capmodulename, self.capname = self.capname.rsplit('.', 1)
         except ValueError:
-            self.error('Cap name must be in format module.ICapSomething or ICapSomething')
+            self.error('Cap name must be in format module.CapSomething or CapSomething')
 
         try:
             module = importlib.import_module(self.capmodulename)

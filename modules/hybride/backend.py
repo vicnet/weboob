@@ -19,7 +19,7 @@
 
 
 from weboob.tools.backend import BaseBackend
-from weboob.capabilities.calendar import ICapCalendarEvent, CATEGORIES
+from weboob.capabilities.calendar import CapCalendarEvent, CATEGORIES
 
 from .browser import HybrideBrowser
 from .calendar import HybrideCalendarEvent
@@ -27,13 +27,13 @@ from .calendar import HybrideCalendarEvent
 __all__ = ['HybrideBackend']
 
 
-class HybrideBackend(BaseBackend, ICapCalendarEvent):
+class HybrideBackend(BaseBackend, CapCalendarEvent):
     NAME = 'hybride'
     DESCRIPTION = u'hybride website'
     MAINTAINER = u'Bezleputh'
     EMAIL = 'carton_ben@yahoo.fr'
     LICENSE = 'AGPLv3+'
-    VERSION = '0.j'
+    VERSION = '1.0'
     ASSOCIATED_CATEGORIES = [CATEGORIES.CINE]
     BROWSER = HybrideBrowser
 

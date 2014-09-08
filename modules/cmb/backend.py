@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound
+from weboob.capabilities.bank import CapBank, AccountNotFound
 from weboob.capabilities.bank import Account, Transaction
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
@@ -36,11 +36,11 @@ from StringIO import StringIO
 __all__ = ['CmbBackend']
 
 
-class CmbBackend(BaseBackend, ICapBank):
+class CmbBackend(BaseBackend, CapBank):
     NAME = 'cmb'
     MAINTAINER = u'Johann Broudin'
     EMAIL = 'Johann.Broudin@6-8.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     DESCRIPTION = u'Crédit Mutuel de Bretagne'
     CONFIG = BackendConfig(

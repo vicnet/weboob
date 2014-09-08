@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.housing import ICapHousing
+from weboob.capabilities.housing import CapHousing
 from weboob.tools.application.qt import QtApplication
 from weboob.tools.config.yamlconfig import YamlConfig
 
@@ -27,16 +27,16 @@ from .main_window import MainWindow
 
 class QFlatBoob(QtApplication):
     APPNAME = 'qflatboob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2010-2012 Romain Bignon'
     DESCRIPTION = "Qt application to search for housing."
     SHORT_DESCRIPTION = "search for housing"
-    CAPS = ICapHousing
+    CAPS = CapHousing
     CONFIG = {'queries': {}}
     STORAGE = {'bookmarks': [], 'read': [], 'notes': {}}
 
     def main(self, argv):
-        self.load_backends(ICapHousing)
+        self.load_backends(CapHousing)
         self.create_storage()
         self.load_config(klass=YamlConfig)
 

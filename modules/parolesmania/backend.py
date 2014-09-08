@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.lyrics import ICapLyrics, SongLyrics
+from weboob.capabilities.lyrics import CapLyrics, SongLyrics
 from weboob.tools.backend import BaseBackend
 
 from .browser import ParolesmaniaBrowser
@@ -27,11 +27,11 @@ from urllib import quote_plus
 __all__ = ['ParolesmaniaBackend']
 
 
-class ParolesmaniaBackend(BaseBackend, ICapLyrics):
+class ParolesmaniaBackend(BaseBackend, CapLyrics):
     NAME = 'parolesmania'
     MAINTAINER = u'Julien Veyssier'
     EMAIL = 'julien.veyssier@aiur.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'Paroles Mania lyrics website'
     LICENSE = 'AGPLv3+'
     BROWSER = ParolesmaniaBrowser

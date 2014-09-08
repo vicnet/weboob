@@ -17,10 +17,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.library import ICapBook, Book
+from weboob.capabilities.library import CapBook, Book
 from weboob.tools.application.repl import ReplApplication
 from weboob.tools.application.formatters.iformatter import PrettyFormatter
-import sys
 
 __all__ = ['Boobooks']
 
@@ -39,9 +38,9 @@ class RentedListFormatter(PrettyFormatter):
 
 class Boobooks(ReplApplication):
     APPNAME = 'boobooks'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2012 Jeremy Monnet'
-    CAPS = ICapBook
+    CAPS = CapBook
     DESCRIPTION = "Console application allowing to list your books rented or booked at the library, " \
                   "book and search new ones, get your booking history (if available)."
     SHORT_DESCRIPTION = "manage rented books"
@@ -63,7 +62,7 @@ class Boobooks(ReplApplication):
 
         id, backend_name = self.parse_id(id)
         if not id:
-            print >>sys.stderr, 'Error: please give a book ID (hint: use ls command)'
+            print >>self.stderr, 'Error: please give a book ID (hint: use ls command)'
             return 2
         names = (backend_name,) if backend_name is not None else None
 

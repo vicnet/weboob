@@ -18,8 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-import sys
-from weboob.capabilities.translate import ICapTranslate, TranslationFail, LanguageNotSupported
+from weboob.capabilities.translate import CapTranslate, TranslationFail, LanguageNotSupported
 from weboob.tools.application.repl import ReplApplication
 from weboob.tools.application.formatters.iformatter import IFormatter
 
@@ -47,11 +46,11 @@ class XmlTranslationFormatter(IFormatter):
 
 class Translaboob(ReplApplication):
     APPNAME = 'translaboob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2012 Lucien Loiseau'
     DESCRIPTION = "Console application to translate text from one language to another"
     SHORT_DESCRIPTION = "translate text from one language to another"
-    CAPS = ICapTranslate
+    CAPS = CapTranslate
     EXTRA_FORMATTERS = {'translation': TranslationFormatter,
         'xmltrans':    XmlTranslationFormatter,
         }
@@ -115,5 +114,5 @@ class Translaboob(ReplApplication):
             for backend, translation in self.do('translate', self.LANGUAGE[lan_from], self.LANGUAGE[lan_to], text):
                 self.format(translation)
         except (TranslationFail, LanguageNotSupported) as error:
-            print >>sys.stderr, error
+            print >>self.stderr, error
             pass

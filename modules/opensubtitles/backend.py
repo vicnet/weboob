@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.subtitle import ICapSubtitle, LanguageNotSupported, Subtitle
+from weboob.capabilities.subtitle import CapSubtitle, LanguageNotSupported, Subtitle
 from weboob.applications.suboob.suboob import LANGUAGE_CONV
 from weboob.tools.backend import BaseBackend
 
@@ -28,11 +28,11 @@ from urllib import quote_plus
 __all__ = ['OpensubtitlesBackend']
 
 
-class OpensubtitlesBackend(BaseBackend, ICapSubtitle):
+class OpensubtitlesBackend(BaseBackend, CapSubtitle):
     NAME = 'opensubtitles'
     MAINTAINER = u'Julien Veyssier'
     EMAIL = 'julien.veyssier@aiur.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'Opensubtitles subtitle website'
     LICENSE = 'AGPLv3+'
     BROWSER = OpensubtitlesBrowser

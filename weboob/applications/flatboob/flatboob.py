@@ -18,9 +18,8 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-import sys
 
-from weboob.capabilities.housing import ICapHousing, Query
+from weboob.capabilities.housing import CapHousing, Query
 from weboob.tools.application.repl import ReplApplication, defaultcount
 from weboob.tools.application.formatters.iformatter import IFormatter, PrettyFormatter
 
@@ -75,11 +74,11 @@ class HousingListFormatter(PrettyFormatter):
 
 class Flatboob(ReplApplication):
     APPNAME = 'flatboob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2012 Romain Bignon'
     DESCRIPTION = "Console application to search for housing."
     SHORT_DESCRIPTION = "search for housing"
-    CAPS = ICapHousing
+    CAPS = CapHousing
     EXTRA_FORMATTERS = {'housing_list': HousingListFormatter,
                         'housing':      HousingFormatter,
                        }
@@ -167,12 +166,12 @@ class Flatboob(ReplApplication):
         Get information about a housing.
         """
         if not _id:
-            print >>sys.stderr, 'This command takes an argument: %s' % self.get_command_help('info', short=True)
+            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('info', short=True)
             return 2
 
         housing = self.get_object(_id, 'get_housing')
         if not housing:
-            print >>sys.stderr, 'Housing not found: %s' % _id
+            print >>self.stderr, 'Housing not found: %s' % _id
             return 3
 
         self.start_format()

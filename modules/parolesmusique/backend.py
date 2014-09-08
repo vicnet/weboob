@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.lyrics import ICapLyrics, SongLyrics
+from weboob.capabilities.lyrics import CapLyrics, SongLyrics
 from weboob.tools.backend import BaseBackend
 
 from .browser import ParolesmusiqueBrowser
@@ -25,11 +25,11 @@ from .browser import ParolesmusiqueBrowser
 __all__ = ['ParolesmusiqueBackend']
 
 
-class ParolesmusiqueBackend(BaseBackend, ICapLyrics):
+class ParolesmusiqueBackend(BaseBackend, CapLyrics):
     NAME = 'parolesmusique'
     MAINTAINER = u'Julien Veyssier'
     EMAIL = 'julien.veyssier@aiur.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'paroles-musique lyrics website'
     LICENSE = 'AGPLv3+'
     BROWSER = ParolesmusiqueBrowser

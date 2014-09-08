@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound
+from weboob.capabilities.bank import CapBank, AccountNotFound
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.ordereddict import OrderedDict
 from weboob.tools.value import ValueBackendPassword, Value
@@ -29,11 +29,11 @@ from .browser import GanAssurances
 __all__ = ['GanAssurancesBackend']
 
 
-class GanAssurancesBackend(BaseBackend, ICapBank):
+class GanAssurancesBackend(BaseBackend, CapBank):
     NAME = 'ganassurances'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = u'Groupama'
     LICENSE = 'AGPLv3+'
     website_choices = OrderedDict([(k, u'%s (%s)' % (v, k)) for k, v in sorted({

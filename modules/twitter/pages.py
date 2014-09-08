@@ -23,10 +23,11 @@ from io import StringIO
 import lxml.html as html
 import urllib
 
-from weboob.tools.browser2.page import HTMLPage, JsonPage, method, ListElement, ItemElement, FormNotFound, pagination
+from weboob.tools.browser2.page import HTMLPage, JsonPage, method, FormNotFound, pagination
+from weboob.tools.browser2.elements import ListElement, ItemElement
 from weboob.tools.browser2.filters import CleanText, Format, Link, Regexp, Env, DateTime, Attr, Filter
 from weboob.capabilities.messages import Thread, Message
-from weboob.capabilities.base import CapBaseObject
+from weboob.capabilities.base import BaseObject
 __all__ = ['LoginPage', 'LoginErrorPage', 'ThreadPage', 'Tweet', 'TrendsPage', 'TimelinePage', 'HomeTimelinePage', 'SearchTimelinePage']
 
 
@@ -52,7 +53,11 @@ class TwitterJsonHTMLPage(JsonPage):
                 self.scroll_cursor = self.doc['scroll_cursor']
 
             self.has_next = self.doc['has_more_items']
-            self.doc = html.parse(StringIO(self.doc['items_html']), parser)
+            if self.doc['items_html']:
+                el = html.parse(StringIO(self.doc['items_html']), parser)
+                self.doc = el if el.getroot() is not None else html.Element('brinbrin')
+            else:
+                self.doc = html.Element('brinbrin')
 
 
 class LoginPage(HTMLPage):
@@ -114,13 +119,14 @@ class TrendsPage(TwitterJsonHTMLPage):
         item_xpath = '//li[@class="trend-item js-trend-item  "]'
 
         class item(ItemElement):
-            klass = CapBaseObject
+            klass = BaseObject
 
             obj_id = Attr('.', 'data-trend-name')
 
 
 class TimelineListElement(ListElement):
     item_xpath = '//*[@data-item-type="tweet"]/div'
+    ignore_duplicate = True
 
     def get_last_id(self):
         _el = self.page.doc.xpath('//*[@data-item-type="tweet"]/div')[-1]

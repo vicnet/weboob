@@ -18,7 +18,6 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-import sys
 import os
 import datetime
 import hashlib
@@ -27,12 +26,12 @@ from tempfile import NamedTemporaryFile
 from lxml import etree
 
 from weboob.core import CallErrors
-from weboob.capabilities.messages import ICapMessages, Message, Thread
-from weboob.capabilities.account import ICapAccount
-from weboob.capabilities.contact import ICapContact
+from weboob.capabilities.messages import CapMessages, Message, Thread
+from weboob.capabilities.account import CapAccount
+from weboob.capabilities.contact import CapContact
 from weboob.tools.application.repl import ReplApplication, defaultcount
 from weboob.tools.application.formatters.iformatter import IFormatter
-from weboob.tools.misc import html2text
+from weboob.tools.html import html2text
 
 
 __all__ = ['Boobmsg']
@@ -234,12 +233,12 @@ class ProfileFormatter(IFormatter):
 
 class Boobmsg(ReplApplication):
     APPNAME = 'boobmsg'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2010-2011 Christophe Benz'
     DESCRIPTION = "Console application allowing to send messages on various websites and " \
                   "to display message threads and contents."
     SHORT_DESCRIPTION = "send and receive message threads"
-    CAPS = ICapMessages
+    CAPS = CapMessages
     EXTRA_FORMATTERS = {'msglist':  MessagesListFormatter,
                         'msg':      MessageFormatter,
                         'xhtml':    XHtmlFormatter,
@@ -262,7 +261,7 @@ class Boobmsg(ReplApplication):
                          type='string', dest='title')
 
     def load_default_backends(self):
-        self.load_backends(ICapMessages, storage=self.create_storage())
+        self.load_backends(CapMessages, storage=self.create_storage())
 
     def main(self, argv):
         self.load_config()
@@ -282,7 +281,7 @@ class Boobmsg(ReplApplication):
         results = {}
         for backend, field in self.do('get_account_status',
                                       backends=backend_name,
-                                      caps=ICapAccount):
+                                      caps=CapAccount):
             if backend.name in results:
                 results[backend.name].append(field)
             else:
@@ -431,7 +430,7 @@ class Boobmsg(ReplApplication):
         """
         message = None
         if len(arg) == 0:
-            print >>sys.stderr, 'Please give a message ID.'
+            print >>self.stderr, 'Please give a message ID.'
             return 2
 
         try:
@@ -448,7 +447,7 @@ class Boobmsg(ReplApplication):
             self.weboob.do('set_message_read', message, backends=message.backend)
             return
         else:
-            print >>sys.stderr,  'Message not found'
+            print >>self.stderr,  'Message not found'
             return 3
 
     def do_profile(self, id):
@@ -460,7 +459,7 @@ class Boobmsg(ReplApplication):
         _id, backend_name = self.parse_id(id, unique_backend=True)
 
         found = 0
-        for backend, contact in self.do('get_contact', _id, backends=backend_name, caps=ICapContact):
+        for backend, contact in self.do('get_contact', _id, backends=backend_name, caps=CapContact):
             if contact:
                 self.format(contact)
                 found = 1
@@ -476,7 +475,7 @@ class Boobmsg(ReplApplication):
         """
         photo_cmd = self.config.get('photo_viewer')
         if photo_cmd is None:
-            print >>sys.stderr, "Configuration error: photo_viewer is undefined"
+            print >>self.stderr, "Configuration error: photo_viewer is undefined"
             return
 
         _id, backend_name = self.parse_id(id, unique_backend=True)

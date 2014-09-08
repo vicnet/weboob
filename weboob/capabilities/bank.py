@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright(C) 2010-2012 Romain Bignon
+# Copyright(C) 2010-2014 Romain Bignon
 #
 # This file is part of weboob.
 #
@@ -24,11 +24,12 @@ import re
 
 from weboob.tools.compat import basestring, long
 
-from .base import CapBaseObject, Field, StringField, DateField, DecimalField, IntField, UserError, Currency
-from .collection import ICapCollection
+from .base import BaseObject, Field, StringField, DecimalField, IntField, UserError, Currency
+from .date import DateField
+from .collection import CapCollection
 
 
-__all__ = ['AccountNotFound', 'TransferError', 'Recipient', 'Account', 'Transaction', 'Investment', 'Transfer', 'ICapBank']
+__all__ = ['AccountNotFound', 'TransferError', 'Recipient', 'Account', 'Transaction', 'Investment', 'Transfer', 'CapBank']
 
 
 class AccountNotFound(UserError):
@@ -46,7 +47,7 @@ class TransferError(UserError):
     """
 
 
-class Recipient(CapBaseObject, Currency):
+class Recipient(BaseObject, Currency):
     """
     Recipient of a transfer.
     """
@@ -55,7 +56,7 @@ class Recipient(CapBaseObject, Currency):
     currency =  StringField('Currency', default=None)
 
     def __init__(self):
-        CapBaseObject.__init__(self, 0)
+        BaseObject.__init__(self, 0)
 
     @property
     def currency_text(self):
@@ -70,13 +71,20 @@ class Account(Recipient):
     a recipient of a transfer.
     """
     TYPE_UNKNOWN          = 0
-    TYPE_CHECKING         = 1  # Transaction, everyday transactions
-    TYPE_SAVINGS          = 2  # Savings/Deposit, can be used for everyday banking
-    TYPE_DEPOSIT          = 3  # Term or Fixed Deposit, has time/amount constraints
+    TYPE_CHECKING         = 1
+    "Transaction, everyday transactions"
+    TYPE_SAVINGS          = 2
+    "Savings/Deposit, can be used for every banking"
+    TYPE_DEPOSIT          = 3
+    "Term of Fixed Deposit, has time/amount constraints"
     TYPE_LOAN             = 4
-    TYPE_MARKET           = 5  # Stock market or other variable investments
-    TYPE_JOINT            = 6  # Joint account
-    TYPE_CARD             = 7  # Card account
+    "Loan account"
+    TYPE_MARKET           = 5
+    "Stock market or other variable investments"
+    TYPE_JOINT            = 6
+    "Joint account"
+    TYPE_CARD             = 7
+    "Card account"
 
     type =      IntField('Type of account', default=TYPE_UNKNOWN)
     balance =   DecimalField('Balance on this bank account')
@@ -86,7 +94,7 @@ class Account(Recipient):
         return u"<Account id=%r label=%r>" % (self.id, self.label)
 
 
-class Transaction(CapBaseObject):
+class Transaction(BaseObject):
     """
     Bank transaction.
     """
@@ -115,6 +123,20 @@ class Transaction(CapBaseObject):
         return "<Transaction date=%r label=%r amount=%r>" % (self.date, self.label, self.amount)
 
     def unique_id(self, seen=None, account_id=None):
+        """
+        Get an unique ID for the transaction based on date, amount and raw.
+
+        :param seen: if given, the method uses this dictionary as a cache to
+                     prevent several transactions with the same values to have the same
+                     unique ID.
+        :type seen: :class:`dict`
+        :param account_id: if given, add the account ID in data used to create
+                           the unique ID. Can be useful if you want your ID to be unique across
+                           several accounts.
+        :type account_id: :class:`str`
+        :returns: an unique ID encoded in 8 length hexadecimal string (for example ``'a64e1bc9'``)
+        :rtype: :class:`str`
+        """
         crc = crc32(str(self.date))
         crc = crc32(str(self.amount), crc)
         crc = crc32(re.sub('[ ]+', ' ', self.raw.encode("utf-8")), crc)
@@ -131,7 +153,7 @@ class Transaction(CapBaseObject):
         return "%08x" % (crc & 0xffffffff)
 
 
-class Investment(CapBaseObject):
+class Investment(BaseObject):
     """
     Investment in a financial market.
     """
@@ -145,7 +167,7 @@ class Investment(CapBaseObject):
     diff =      DecimalField('Difference between the buy cost and the current valuation')
 
 
-class Transfer(CapBaseObject):
+class Transfer(BaseObject):
     """
     Transfer from an account to a recipient.
     """
@@ -157,7 +179,7 @@ class Transfer(CapBaseObject):
     reason =    StringField('Reason')
 
 
-class ICapBank(ICapCollection):
+class CapBank(CapCollection):
     """
     Capability of bank websites to see accounts and transactions.
     """
@@ -169,10 +191,10 @@ class ICapBank(ICapCollection):
         all accounts (by calling :func:`iter_accounts`).
 
         :param objs: type of objects to get
-        :type objs: tuple[:class:`CapBaseObject`]
+        :type objs: tuple[:class:`BaseObject`]
         :param split_path: path to discover
         :type split_path: :class:`list`
-        :rtype: iter[:class:`BaseCapObject`]
+        :rtype: iter[:class:`BaseObject`]
         """
         if Account in objs:
             self._restrict_level(split_path)

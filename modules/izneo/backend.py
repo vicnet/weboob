@@ -21,7 +21,7 @@
 
 import re
 
-from weboob.capabilities.gallery import ICapGallery, BaseGallery, BaseImage
+from weboob.capabilities.gallery import CapGallery, BaseGallery, BaseImage
 from weboob.tools.json import json
 from weboob.tools.backend import BaseBackend
 from weboob.tools.browser import BaseBrowser, BasePage
@@ -39,7 +39,7 @@ class ReaderV2(BasePage):
             'http://www.izneo.com/playerv2/ajax.php?ean=%s&action=get_list_jpg'
             % ean))
 
-        for page in pages:
+        for page in pages['list']:
             width = 1200  # maximum width
             yield BaseImage(page['page'],
                     gallery=gallery,
@@ -61,11 +61,11 @@ class IzneoBrowser(BaseBrowser):
                 image.url, None, {'Referer': image.gallery.url}))
 
 
-class IzneoBackend(BaseBackend, ICapGallery):
+class IzneoBackend(BaseBackend, CapGallery):
     NAME = 'izneo'
     MAINTAINER = u'Roger Philibert'
     EMAIL = 'roger.philibert@gmail.com'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = 'Izneo digital comics'
     LICENSE = 'AGPLv3+'
     BROWSER = IzneoBrowser

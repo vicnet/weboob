@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.bank import ICapBank, AccountNotFound
+from weboob.capabilities.bank import CapBank, AccountNotFound
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 
@@ -28,11 +28,11 @@ from .browser import Barclays
 __all__ = ['BarclaysBackend']
 
 
-class BarclaysBackend(BaseBackend, ICapBank):
+class BarclaysBackend(BaseBackend, CapBank):
     NAME = 'barclays'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = u'Barclays'
     LICENSE = 'AGPLv3+'
     CONFIG = BackendConfig(ValueBackendPassword('login',    label=u"N° d'abonné", masked=False),

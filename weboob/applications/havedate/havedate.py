@@ -18,13 +18,12 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-import sys
 from copy import copy
 
 from weboob.core import CallErrors
 from weboob.tools.application.repl import ReplApplication
 from weboob.applications.boobmsg import Boobmsg
-from weboob.capabilities.dating import ICapDating, OptimizationNotFound
+from weboob.capabilities.dating import CapDating, OptimizationNotFound
 from weboob.tools.application.formatters.iformatter import PrettyFormatter
 
 
@@ -48,14 +47,14 @@ class EventListFormatter(PrettyFormatter):
 
 class HaveDate(Boobmsg):
     APPNAME = 'havedate'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2010-2012 Romain Bignon'
     DESCRIPTION = "Console application allowing to interact with various dating websites " \
                   "and to optimize seduction algorithmically."
     SHORT_DESCRIPTION = "interact with dating websites"
     STORAGE_FILENAME = 'dating.storage'
     STORAGE = {'optims': {}}
-    CAPS = ICapDating
+    CAPS = CapDating
     EXTRA_FORMATTERS = copy(Boobmsg.EXTRA_FORMATTERS)
     EXTRA_FORMATTERS['events'] = EventListFormatter
     COMMANDS_FORMATTERS = copy(Boobmsg.COMMANDS_FORMATTERS)
@@ -63,7 +62,7 @@ class HaveDate(Boobmsg):
     COMMANDS_FORMATTERS['events'] = 'events'
 
     def load_default_backends(self):
-        self.load_backends(ICapDating, storage=self.create_storage(self.STORAGE_FILENAME))
+        self.load_backends(CapDating, storage=self.create_storage(self.STORAGE_FILENAME))
 
     def main(self, argv):
         self.load_config()
@@ -92,7 +91,7 @@ class HaveDate(Boobmsg):
 
     def edit_optims(self, backend_names, optims_names, stop=False):
         if optims_names is None:
-            print >>sys.stderr, 'Error: missing parameters.'
+            print >>self.stderr, 'Error: missing parameters.'
             return 2
 
         for optim_name in optims_names.split():
@@ -124,14 +123,14 @@ class HaveDate(Boobmsg):
 
     def optims(self, function, backend_names, optims, store=True):
         if optims is None:
-            print >>sys.stderr, 'Error: missing parameters.'
+            print >>self.stderr, 'Error: missing parameters.'
             return 2
 
         for optim_name in optims.split():
             try:
                 if store:
                     storage_optim = set(self.storage.get('optims', optim_name, default=[]))
-                sys.stdout.write('%sing %s:' % (function.capitalize(), optim_name))
+                self.stdout.write('%sing %s:' % (function.capitalize(), optim_name))
                 for backend, optim in self.do('get_optimization', optim_name, backends=backend_names):
                     if optim:
                         # It's useless to start a started optim, or to stop a stopped one.
@@ -144,10 +143,10 @@ class HaveDate(Boobmsg):
                             self.edit_optims(backend.name, optim_name)
 
                         ret = getattr(optim, function)()
-                        sys.stdout.write(' ' + backend.name)
+                        self.stdout.write(' ' + backend.name)
                         if not ret:
-                            sys.stdout.write('(failed)')
-                        sys.stdout.flush()
+                            self.stdout.write('(failed)')
+                        self.stdout.flush()
                         if store:
                             if function == 'start' and ret:
                                 storage_optim.add(backend.name)
@@ -156,7 +155,7 @@ class HaveDate(Boobmsg):
                                     storage_optim.remove(backend.name)
                                 except KeyError:
                                     pass
-                sys.stdout.write('.\n')
+                self.stdout.write('.\n')
             except CallErrors as errors:
                 for backend, error, backtrace in errors:
                     if isinstance(error, OptimizationNotFound):
@@ -206,7 +205,7 @@ class HaveDate(Boobmsg):
         if backend_name == '*':
             backend_name = None
         elif backend_name is not None and not backend_name in [b.name for b in self.enabled_backends]:
-            print >>sys.stderr, 'Error: No such backend "%s"' % backend_name
+            print >>self.stderr, 'Error: No such backend "%s"' % backend_name
             return 1
 
         if cmd == 'start':
@@ -246,7 +245,7 @@ class HaveDate(Boobmsg):
                     line.append((b, status))
                 self.format(tuple(line))
             return
-        print >>sys.stderr, "No such command '%s'" % cmd
+        print >>self.stderr, "No such command '%s'" % cmd
         return 1
 
     def do_events(self, line):

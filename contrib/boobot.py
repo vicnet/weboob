@@ -188,6 +188,7 @@ class MyThread(Thread):
 
         self.weboob.repeat(300, self.check_board)
         self.weboob.repeat(600, self.check_dlfp)
+        self.weboob.repeat(600, self.check_twitter)
 
         self.weboob.loop()
 
@@ -201,6 +202,18 @@ class MyThread(Thread):
             if word in text.lower():
                 return word
         return None
+
+    def check_twitter(self):
+        for backend, thread in self.weboob.do('iter_resources', objs=None,
+                                              split_path=['search', 'weboob'], backends=['twitter']):
+            if not thread.id in backend.storage.get('seen', default={}):
+                _item = thread.id.split('#')
+                url = 'https://twitter.com/%s/status/%s' % (_item[0], _item[1])
+                for msg in self.bot.on_url(url):
+                    self.bot.send_message('%s: %s' % (_item[0], url))
+                    self.bot.send_message(msg)
+
+                backend.set_message_read(backend.fill_thread(thread, ['root']).root)
 
     def check_dlfp(self):
         for backend, msg in self.weboob.do('iter_unread_messages', backends=['dlfp']):
@@ -291,17 +304,32 @@ class Boobot(SingleServerIRCBot):
         quotes.append({'author': nick, 'timestamp': datetime.now(), 'text': text})
         self.storage.set(channel, 'quotes', quotes)
         self.storage.save()
+        self.send_message('Quote #%s added' % len(quotes) - 1, channel)
+
+    def cmd_delquote(self, nick, channel, text):
+        quotes = self.storage.get(channel, 'quotes', default=[])
+
+        try:
+            n = int(text)
+        except ValueError:
+            self.send_message("Quote #%s not found gros" % text, channel)
+            return
+
+        quotes.pop(n)
+        self.storage.set(channel, 'quotes', quotes)
+        self.storage.save()
+        self.send_message('Quote #%s removed' % n, channel)
 
     def cmd_searchquote(self, nick, channel, text):
         try:
-            pattern = re.compile(text, re.IGNORECASE)
+            pattern = re.compile(to_unicode(text), re.IGNORECASE|re.UNICODE)
         except Exception as e:
             self.send_message(str(e), channel)
             return
 
         quotes = []
         for quote in self.storage.get(channel, 'quotes', default=[]):
-            if pattern.search(quote['text']):
+            if pattern.search(to_unicode(quote['text'])):
                 quotes.append(quote)
 
         try:

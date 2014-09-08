@@ -19,7 +19,7 @@
 
 
 from weboob.tools.backend import BaseBackend, BackendConfig
-from weboob.capabilities.job import ICapJob
+from weboob.capabilities.job import CapJob
 from weboob.tools.value import Value
 from weboob.tools.ordereddict import OrderedDict
 
@@ -29,12 +29,12 @@ from .job import PopolemploiJobAdvert
 __all__ = ['PopolemploiBackend']
 
 
-class PopolemploiBackend(BaseBackend, ICapJob):
+class PopolemploiBackend(BaseBackend, CapJob):
     NAME = 'popolemploi'
     DESCRIPTION = u'Pole Emploi website'
     MAINTAINER = u'Bezleputh'
     EMAIL = 'carton_ben@yahoo.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
 
     BROWSER = PopolemploiBrowser
 

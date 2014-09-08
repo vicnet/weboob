@@ -20,7 +20,7 @@
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.ordereddict import OrderedDict
 from weboob.tools.value import Value, ValueBool
-from weboob.capabilities.calendar import ICapCalendarEvent, CATEGORIES
+from weboob.capabilities.calendar import CapCalendarEvent, CATEGORIES
 
 from .browser import SenscritiqueBrowser
 from .calendar import SensCritiquenCalendarEvent
@@ -28,13 +28,13 @@ from .calendar import SensCritiquenCalendarEvent
 __all__ = ['SenscritiqueBackend']
 
 
-class SenscritiqueBackend(BaseBackend, ICapCalendarEvent):
+class SenscritiqueBackend(BaseBackend, CapCalendarEvent):
     NAME = 'senscritique'
     DESCRIPTION = u'senscritique website'
     MAINTAINER = u'Bezleputh'
     EMAIL = 'carton_ben@yahoo.fr'
     LICENSE = 'AGPLv3+'
-    VERSION = '0.j'
+    VERSION = '1.0'
     ASSOCIATED_CATEGORIES = [CATEGORIES.TELE]
     BROWSER = SenscritiqueBrowser
 
@@ -114,10 +114,11 @@ class SenscritiqueBackend(BaseBackend, ICapCalendarEvent):
         items.sort(key=lambda o:o.start_date)
         return items
 
-    def get_event(self, _id):
-        return self.browser.get_event(_id)
+    def get_event(self, _id, event=None):
+        package, channels = self.get_package_and_channels()
+        return self.browser.get_event(_id, event, package=package, channels=channels)
 
     def fill_obj(self, event, fields):
-        return self.browser.get_event(event.id, event)
+        return self.get_event(event.id, event)
 
     OBJECTS = {SensCritiquenCalendarEvent: fill_obj}

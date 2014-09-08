@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 from .browser import SachsenBrowser
-from weboob.capabilities.gauge import ICapGauge, GaugeSensor, Gauge,\
+from weboob.capabilities.gauge import CapGauge, GaugeSensor, Gauge,\
         SensorNotFound
 from weboob.capabilities.base import find_object
 from weboob.tools.backend import BaseBackend
@@ -27,11 +27,11 @@ from weboob.tools.backend import BaseBackend
 __all__ = ['SachsenLevelBackend']
 
 
-class SachsenLevelBackend(BaseBackend, ICapGauge):
+class SachsenLevelBackend(BaseBackend, CapGauge):
     NAME = 'sachsen'
     MAINTAINER = u'Florent Fourcot'
     EMAIL = 'weboob@flo.fourcot.fr'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     DESCRIPTION = u"Level of Sachsen river"
     BROWSER = SachsenBrowser

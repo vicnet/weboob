@@ -17,11 +17,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
+from weboob.tools.ordereddict import OrderedDict
 
-from .base import IBaseCap, CapBaseObject, UserError, StringField, Field
+from .base import CapBase, BaseObject, UserError, StringField, Field
 
 
-__all__ = ['ICapCollection', 'BaseCollection', 'Collection', 'CollectionNotFound']
+__all__ = ['CapCollection', 'BaseCollection', 'Collection', 'CollectionNotFound']
 
 
 class CollectionNotFound(UserError):
@@ -33,13 +34,13 @@ class CollectionNotFound(UserError):
         UserError.__init__(self, msg)
 
 
-class BaseCollection(CapBaseObject):
+class BaseCollection(BaseObject):
     """
     Inherit from this if you want to create an object that is *also* a Collection.
     However, this probably will not work properly for now.
     """
     def __init__(self, split_path):
-        CapBaseObject.__init__(self, None)
+        BaseObject.__init__(self, None)
         self.split_path = split_path
 
     @property
@@ -54,6 +55,19 @@ class BaseCollection(CapBaseObject):
     def path_level(self):
         return len(self.split_path)
 
+    def to_dict(self):
+        def iter_decorate(d):
+            for key, value in d:
+                if key == 'id' and self.backend is not None:
+                    value = u'%s@%s' % (self.basename, self.backend)
+                yield key, value
+
+                if key == 'split_path':
+                    yield key, '/'.join(value)
+
+        fields_iterator = self.iter_fields()
+        return OrderedDict(iter_decorate(fields_iterator))
+
 
 class Collection(BaseCollection):
     """
@@ -62,7 +76,7 @@ class Collection(BaseCollection):
 
     It is a dumb object, it must not contain callbacks to a backend.
 
-    Do not inherit from this class if you want to make a regular CapBaseObject
+    Do not inherit from this class if you want to make a regular BaseObject
     a Collection, use BaseCollection instead.
     """
     title = StringField('Collection title')
@@ -81,7 +95,7 @@ class Collection(BaseCollection):
             return u'Unknown collection'
 
 
-class ICapCollection(IBaseCap):
+class CapCollection(CapBase):
     def iter_resources_flat(self, objs, split_path, clean_only=False):
         """
         Call iter_resources() to fetch all resources in the tree.

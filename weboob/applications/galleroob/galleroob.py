@@ -19,13 +19,12 @@
 
 
 
-import sys
 import os
 from re import search, sub
 
 from weboob.tools.application.repl import ReplApplication, defaultcount
 from weboob.capabilities.base import empty
-from weboob.capabilities.gallery import ICapGallery, BaseGallery, BaseImage
+from weboob.capabilities.gallery import CapGallery, BaseGallery, BaseImage
 from weboob.tools.application.formatters.iformatter import PrettyFormatter
 
 
@@ -48,11 +47,11 @@ class GalleryListFormatter(PrettyFormatter):
 
 class Galleroob(ReplApplication):
     APPNAME = 'galleroob'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = u'Copyright(C) 2011 Noé Rubinstein'
     DESCRIPTION = 'galleroob browses and downloads web image galleries'
     SHORT_DESCRIPTION = 'browse and download web image galleries'
-    CAPS = ICapGallery
+    CAPS = CapGallery
     EXTRA_FORMATTERS = {'gallery_list': GalleryListFormatter}
     COMMANDS_FORMATTERS = {'search': 'gallery_list', 'ls': 'gallery_list'}
     COLLECTION_OBJECTS = (BaseGallery, BaseImage, )
@@ -68,7 +67,7 @@ class Galleroob(ReplApplication):
         List galleries matching a PATTERN.
         """
         if not pattern:
-            print >>sys.stderr, 'This command takes an argument: %s' % self.get_command_help('search', short=True)
+            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('search', short=True)
             return 2
 
         self.start_format(pattern=pattern)
@@ -98,7 +97,7 @@ class Galleroob(ReplApplication):
                 gallery = result
 
         if not gallery:
-            print >>sys.stderr, 'Gallery not found: %s' % _id
+            print >>self.stderr, 'Gallery not found: %s' % _id
             return 3
 
         backend.fillobj(gallery, ('title',))
@@ -123,7 +122,7 @@ class Galleroob(ReplApplication):
             if img.data is None:
                 backend.fillobj(img, ('url', 'data'))
                 if img.data is None:
-                    print >>sys.stderr, "Couldn't get page %d, exiting" % i
+                    print >>self.stderr, "Couldn't get page %d, exiting" % i
                     break
 
             ext = search(r"\.([^\.]{1,5})$", img.url)
@@ -150,7 +149,7 @@ class Galleroob(ReplApplication):
 
         gallery = self.get_object(_id, 'get_gallery')
         if not gallery:
-            print >>sys.stderr, 'Gallery not found: %s' % _id
+            print >>self.stderr, 'Gallery not found: %s' % _id
             return 3
 
         self.start_format()

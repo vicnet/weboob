@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.dating import ICapDating
+from weboob.capabilities.dating import CapDating
 from weboob.tools.application.qt import QtApplication
 
 from .main_window import MainWindow
@@ -26,16 +26,16 @@ from .main_window import MainWindow
 
 class QHaveDate(QtApplication):
     APPNAME = 'qhavedate'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2010-2012 Romain Bignon'
     DESCRIPTION = "Qt application allowing to interact with various dating websites."
     SHORT_DESCRIPTION = "interact with dating websites"
-    CAPS = ICapDating
+    CAPS = CapDating
     STORAGE_FILENAME = 'dating.storage'
 
     def main(self, argv):
         self.create_storage(self.STORAGE_FILENAME)
-        self.load_backends(ICapDating)
+        self.load_backends(CapDating)
 
         self.main_window = MainWindow(self.config, self.weboob)
         self.main_window.show()

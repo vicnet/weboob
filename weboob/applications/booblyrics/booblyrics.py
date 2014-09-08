@@ -19,9 +19,8 @@
 
 
 
-import sys
 
-from weboob.capabilities.lyrics import ICapLyrics
+from weboob.capabilities.lyrics import CapLyrics
 from weboob.capabilities.base import empty
 from weboob.tools.application.repl import ReplApplication, defaultcount
 from weboob.tools.application.formatters.iformatter import IFormatter, PrettyFormatter
@@ -58,11 +57,11 @@ class LyricsListFormatter(PrettyFormatter):
 
 class Booblyrics(ReplApplication):
     APPNAME = 'booblyrics'
-    VERSION = '0.j'
+    VERSION = '1.0'
     COPYRIGHT = 'Copyright(C) 2013 Julien Veyssier'
     DESCRIPTION = "Console application allowing to search for song lyrics on various websites."
     SHORT_DESCRIPTION = "search and display song lyrics"
-    CAPS = ICapLyrics
+    CAPS = CapLyrics
     EXTRA_FORMATTERS = {'lyrics_list': LyricsListFormatter,
                         'lyrics_get': LyricsGetFormatter,
                         }
@@ -85,7 +84,7 @@ class Booblyrics(ReplApplication):
 
         songlyrics = self.get_object(id, 'get_lyrics')
         if not songlyrics:
-            print >>sys.stderr, 'Song lyrics not found: %s' % id
+            print >>self.stderr, 'Song lyrics not found: %s' % id
             return 3
 
         self.start_format()

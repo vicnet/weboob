@@ -20,11 +20,11 @@
 
 
 from weboob.capabilities.base import NotLoaded
-from weboob.capabilities.video import ICapVideo
-from weboob.capabilities.radio import ICapRadio, Radio
+from weboob.capabilities.video import CapVideo
+from weboob.capabilities.radio import CapRadio, Radio
 from weboob.capabilities.audiostream import BaseAudioStream
 from weboob.tools.capabilities.streaminfo import StreamInfo
-from weboob.capabilities.collection import ICapCollection, CollectionNotFound, Collection
+from weboob.capabilities.collection import CapCollection, CollectionNotFound, Collection
 from weboob.tools.backend import BaseBackend
 
 from .browser import RadioFranceBrowser, RadioFranceVideo
@@ -33,11 +33,11 @@ from .browser import RadioFranceBrowser, RadioFranceVideo
 __all__ = ['RadioFranceBackend']
 
 
-class RadioFranceBackend(BaseBackend, ICapRadio, ICapCollection, ICapVideo):
+class RadioFranceBackend(BaseBackend, CapRadio, CapCollection, CapVideo):
     NAME = 'radiofrance'
     MAINTAINER = u'Laurent Bachelier'
     EMAIL = 'laurent@bachelier.name'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = u'Radios of Radio France: Inter, Info, Bleu, Culture, Musique, FIP, Le Mouv\''
     LICENSE = 'AGPLv3+'
     BROWSER = RadioFranceBrowser
@@ -98,10 +98,9 @@ class RadioFranceBackend(BaseBackend, ICapRadio, ICapCollection, ICapVideo):
                         'franceculture',
                         'franceinfo',
                         'lemouv',
-                        'fip',
                         )
 
-    _DIRECTJSON_RADIOS = ('lemouv', 'franceinter', )
+    _DIRECTJSON_RADIOS = ('lemouv', )
     _LARGEDIRECTJSON_RADIOS = ('fip', )
     _RSS_RADIOS = ('francemusique', )
 
@@ -128,7 +127,7 @@ class RadioFranceBackend(BaseBackend, ICapRadio, ICapCollection, ICapVideo):
         if not isinstance(radio, Radio):
             radio = Radio(radio)
 
-        if not radio.id in self._RADIOS:
+        if radio.id not in self._RADIOS:
             return None
 
         title, hd = self._RADIOS[radio.id]
@@ -146,10 +145,10 @@ class RadioFranceBackend(BaseBackend, ICapRadio, ICapCollection, ICapVideo):
 
         stream = BaseAudioStream(0)
         if hd:
-            stream.bitrate=128
+            stream.bitrate = 128
         else:
-            stream.bitrate=32
-        stream.format=u'mp3'
+            stream.bitrate = 32
+        stream.format = u'mp3'
         stream.title = u'%s kbits/s' % (stream.bitrate)
         stream.url = url
         radio.streams = [stream]
@@ -205,4 +204,4 @@ class RadioFranceBackend(BaseBackend, ICapRadio, ICapCollection, ICapVideo):
         return video
 
     OBJECTS = {Radio: fill_radio,
-            RadioFranceVideo: fill_video}
+               RadioFranceVideo: fill_video}

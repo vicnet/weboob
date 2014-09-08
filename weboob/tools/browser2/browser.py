@@ -24,9 +24,7 @@ try:
     from urllib.parse import urlparse, urljoin
 except ImportError:
     from urlparse import urlparse, urljoin
-import mimetypes
 import os
-import tempfile
 import sys
 
 try:
@@ -79,7 +77,7 @@ class Firefox(Profile):
     Try to mimic a specific version of Firefox.
     Ideally, it should follow the current ESR Firefox:
     https://www.mozilla.org/en-US/firefox/organizations/all.html
-    Do not change the Firefox version without changing the Gecko one!
+    Do not change the Firefox version without checking the Gecko one!
     """
 
     def setup_session(self, session):
@@ -96,7 +94,7 @@ class Firefox(Profile):
             'Accept-Language': 'en-us,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:24.0) Gecko/20100101 Firefox/24.0',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:31.0) Gecko/20100101 Firefox/31.0',
             'DNT': '1'}
 
 
@@ -160,11 +158,13 @@ class BaseBrowser(object):
 
     def _save(self, response, warning=False, **kwargs):
         if self.responses_dirname is None:
+            import tempfile
             self.responses_dirname = tempfile.mkdtemp(prefix='weboob_session_')
             print('Debug data will be saved in this directory: %s' % self.responses_dirname, file=sys.stderr)
         elif not os.path.isdir(self.responses_dirname):
             os.makedirs(self.responses_dirname)
 
+        import mimetypes
         # get the content-type, remove optionnal charset part
         mimetype = response.headers.get('Content-Type', '').split(';')[0]
         # due to http://bugs.python.org/issue1043134
@@ -192,7 +192,8 @@ class BaseBrowser(object):
             if request.body is not None:  # separate '' from None
                 f.write('\n\n\n%s' % request.body)
         with open(response_filepath + '-response.txt', 'w') as f:
-            f.write('Time: %3.3fs\n' % response.elapsed.total_seconds())
+            if hasattr(response.elapsed, 'total_seconds'):
+                f.write('Time: %3.3fs\n' % response.elapsed.total_seconds())
             f.write('%s %s\n\n\n' % (response.status_code, response.reason))
             for key, value in response.headers.iteritems():
                 f.write('%s: %s\n' % (key, value))

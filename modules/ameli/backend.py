@@ -18,7 +18,7 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 import urllib
-from weboob.capabilities.bill import ICapBill, SubscriptionNotFound, BillNotFound, Subscription, Bill
+from weboob.capabilities.bill import CapBill, SubscriptionNotFound, BillNotFound, Subscription, Bill
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 from .browser import AmeliBrowser
@@ -26,12 +26,12 @@ from .browser import AmeliBrowser
 __all__ = ['AmeliBackend']
 
 
-class AmeliBackend(BaseBackend, ICapBill):
+class AmeliBackend(BaseBackend, CapBill):
     NAME = 'ameli'
     DESCRIPTION = u'Ameli website: French Health Insurance'
     MAINTAINER = u'Christophe Lampin'
     EMAIL = 'weboob@lampin.net'
-    VERSION = '0.j'
+    VERSION = '1.0'
     LICENSE = 'AGPLv3+'
     BROWSER = AmeliBrowser
     CONFIG = BackendConfig(ValueBackendPassword('login',

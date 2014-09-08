@@ -23,15 +23,13 @@ try:
     from urllib.parse import unquote
 except ImportError:
     from urllib import unquote
-import requests
 import re
-import sys
+import warnings
 from copy import deepcopy
 from io import BytesIO
-import lxml.html as html
-import lxml.etree as etree
 
-from weboob.tools.json import json
+import requests
+
 from weboob.tools.ordereddict import OrderedDict
 from weboob.tools.regex_helper import normalize
 from weboob.tools.compat import basestring
@@ -39,18 +37,11 @@ from weboob.tools.compat import basestring
 from weboob.tools.log import getLogger
 
 from .browser import DomainBrowser
-from .filters import _Filter, CleanText, AttributeNotFound, XPathNotFound
 
 
 class UrlNotResolvable(Exception):
     """
     Raised when trying to locate on an URL instance which url pattern is not resolvable as a real url.
-    """
-
-
-class DataError(Exception):
-    """
-    Returned data from pages are incoherent.
     """
 
 
@@ -139,10 +130,13 @@ class URL(object):
         """
         Build an url with the given arguments from URL's regexps.
 
+        :param param: Query string parameters
+
         :rtype: :class:`str`
         :raises: :class:`UrlNotResolvable` if unable to resolve a correct url with the given arguments.
         """
         browser = kwargs.pop('browser', self.browser)
+        params = kwargs.pop('params', None)
         patterns = []
         for url in self.urls:
             patterns += normalize(url)
@@ -161,7 +155,12 @@ class URL(object):
             if len(kwargs):
                 continue
 
-            return browser.absurl(url, base=True)
+            url = browser.absurl(url, base=True)
+            if params:
+                p = requests.models.PreparedRequest()
+                p.prepare_url(url, params)
+                url = p.url
+            return url
 
         raise UrlNotResolvable('Unable to resolve URL with %r. Available are %s' % (kwargs, ', '.join([pattern for pattern, _ in patterns])))
 
@@ -189,7 +188,17 @@ class URL(object):
 
         m = self.match(response.url)
         if m:
-            return self.klass(self.browser, response, m.groupdict())
+            page = self.klass(self.browser, response, m.groupdict())
+            if hasattr(page, 'is_here'):
+                if callable(page.is_here):
+                    if page.is_here():
+                        return page
+                else:
+                    assert isinstance(page.is_here, basestring)
+                    if page.doc.xpath(page.is_here):
+                        return page
+            else:
+                return page
 
     def id2url(self, func):
         r"""
@@ -374,7 +383,7 @@ def pagination(func):
     ['One', 'Two', 'Three', 'Four']
     """
     def inner(page, *args, **kwargs):
-        while 1:
+        while True:
             try:
                 for r in func(page, *args, **kwargs):
                     yield r
@@ -456,21 +465,33 @@ class FormNotFound(Exception):
     Raised when :meth:`HTMLPage.get_form` can't find a form.
     """
 
+class FormSubmitWarning(UserWarning):
+    """
+    A form has more than one submit element selected, and will likely
+    generate an invalid request.
+    """
+
 class Form(OrderedDict):
     """
     Represents a form of an HTML page.
 
     It is used as a dict with pre-filled values from HTML. You can set new
     values as strings by setting an item value.
+
+    submit_el allows you to only consider one submit button (which is what
+    browsers do). If set to None, it takes all of them, and if set to False,
+    it takes none.
     """
 
-    def __init__(self, page, el):
+    def __init__(self, page, el, submit_el=None):
         super(Form, self).__init__()
         self.page = page
         self.el = el
+        self.submit_el = submit_el
         self.method = el.attrib.get('method', 'GET')
         self.url = el.attrib.get('action', page.url)
         self.name = el.attrib.get('name', '')
+        submits = 0
 
         for inp in el.xpath('.//input | .//select | .//textarea'):
             try:
@@ -479,8 +500,17 @@ class Form(OrderedDict):
                 continue
 
             try:
-                if inp.attrib['type'] in ('checkbox', 'radio') and not 'checked' in inp.attrib:
+                if inp.attrib['type'] in ('checkbox', 'radio') and 'checked' not in inp.attrib:
                     continue
+            except KeyError:
+                pass
+
+            try:
+                if inp.attrib['type'] == 'submit':
+                    if self.submit_el is not None and inp is not self.submit_el:
+                        continue
+                    else:
+                        submits += 1
             except KeyError:
                 pass
 
@@ -494,7 +524,14 @@ class Form(OrderedDict):
                     value = options[0].attrib.get('value', options[0].text or u'')
             else:
                 value = inp.attrib.get('value', inp.text or u'')
+
             self[name] = value
+
+        if submits > 1:
+            warnings.warn('Form has more than one submit input, you should chose the correct one', FormSubmitWarning, stacklevel=3)
+        if self.submit_el is not None and self.submit_el is not False and submits == 0:
+            warnings.warn('Form had a submit element provided, but it was not found', FormSubmitWarning, stacklevel=3)
+
 
     @property
     def request(self):
@@ -516,9 +553,62 @@ class Form(OrderedDict):
         return self.page.browser.location(self.request, **kwargs)
 
 
+class CsvPage(BasePage):
+    DIALECT = 'excel'
+    FMTPARAMS = {}
+    ENCODING = 'utf-8'
+    NEWLINES_HACK = True
+
+    """
+    If True, will consider the first line as a header.
+    This means the rows will be also available as dictionnaries.
+    """
+    HEADER = None
+
+    def __init__(self, browser, response, *args, **kwargs):
+        super(CsvPage, self).__init__(browser, response, *args, **kwargs)
+        content = response.content
+        encoding = self.ENCODING
+        if encoding == 'utf-16le':
+            content = content.decode('utf-16le')[1:].encode('utf-8')
+            encoding = 'utf-8'
+        if self.NEWLINES_HACK:
+            content = content.replace('\r\n', '\n').replace('\r', '\n')
+        fp = BytesIO(content)
+        self.doc = self.parse(fp, encoding)
+
+    def parse(self, data, encoding=None):
+        import csv
+        reader = csv.reader(data, dialect=self.DIALECT, **self.FMTPARAMS)
+        header = None
+        drows = []
+        rows = []
+        for i, row in enumerate(reader):
+            if self.HEADER and i+1 < self.HEADER:
+                continue
+            row = self.decode_row(row, encoding)
+            if header is None and self.HEADER:
+                header = row
+            else:
+                rows.append(row)
+                if header:
+                    drow = {}
+                    for i, cell in enumerate(row):
+                        drow[header[i]] = cell
+                    drows.append(drow)
+        return drows if header is not None else row
+
+    def decode_row(self, row, encoding):
+        if encoding:
+            return [unicode(cell, encoding) for cell in row]
+        else:
+            return row
+
+
 class JsonPage(BasePage):
     def __init__(self, browser, response, *args, **kwargs):
         super(JsonPage, self).__init__(browser, response, *args, **kwargs)
+        from weboob.tools.json import json
         self.doc = json.loads(response.text)
 
 
@@ -531,6 +621,7 @@ class XMLPage(BasePage):
 
     def __init__(self, browser, response, *args, **kwargs):
         super(XMLPage, self).__init__(browser, response, *args, **kwargs)
+        import lxml.etree as etree
         parser = etree.XMLParser(encoding=self.ENCODING or response.encoding)
         self.doc = etree.parse(BytesIO(response.content), parser)
 
@@ -556,19 +647,26 @@ class HTMLPage(BasePage):
     def __init__(self, browser, response, *args, **kwargs):
         super(HTMLPage, self).__init__(browser, response, *args, **kwargs)
         self.encoding = self.ENCODING or response.encoding
+        import lxml.html as html
         parser = html.HTMLParser(encoding=self.encoding)
         self.doc = html.parse(BytesIO(response.content), parser)
 
-    def get_form(self, xpath='//form', name=None, nr=None):
+    def get_form(self, xpath='//form', name=None, nr=None, submit=None):
         """
         Get a :class:`Form` object from a selector.
+        The form will be analyzed and its parameters extracted.
+        In the case there is more than one "submit" input, only one of
+        them should be chosen to generate the request.
 
         :param xpath: xpath string to select forms
         :type xpath: :class:`str`
         :param name: if supplied, select a form with the given name
         :type name: :class:`str`
-        :param nr: if supplied, take the n-th selected form
+        :param nr: if supplied, take the n+1 th selected form
         :type nr: :class:`int`
+        :param submit: if supplied, xpath string to select the submit \
+            element from the form
+        :type submit: :class:`str`
         :rtype: :class:`Form`
         :raises: :class:`FormNotFound` if no form is found
         """
@@ -580,7 +678,12 @@ class HTMLPage(BasePage):
                 i += 1
                 continue
 
-            return self.FORM_CLASS(self, el)
+            if isinstance(submit, basestring):
+                submit_el = el.xpath(submit)[0]
+            else:
+                submit_el = submit
+
+            return self.FORM_CLASS(self, el, submit_el)
 
         raise FormNotFound()
 
@@ -592,214 +695,6 @@ def method(klass):
     def inner(self, *args, **kwargs):
         return klass(self)(*args, **kwargs)
     return inner
-
-
-class AbstractElement(object):
-    def __init__(self, page, parent=None, el=None):
-        self.page = page
-        self.parent = parent
-        if el is not None:
-            self.el = el
-        elif parent is not None:
-            self.el = parent.el
-        else:
-            self.el = page.doc
-
-        if parent is not None:
-            self.env = deepcopy(parent.env)
-        else:
-            self.env = deepcopy(page.params)
-
-    def use_selector(self, func):
-        if isinstance(func, _Filter):
-            value = func(self)
-        elif callable(func):
-            value = func()
-        else:
-            value = deepcopy(func)
-
-        return value
-
-    def parse(self, obj):
-        pass
-
-    def xpath(self, *args, **kwargs):
-        return self.el.xpath(*args, **kwargs)
-
-
-class ListElement(AbstractElement):
-    item_xpath = None
-    flush_at_end = False
-    ignore_duplicate = False
-
-    def __init__(self, *args, **kwargs):
-        super(ListElement, self).__init__(*args, **kwargs)
-        self.logger = getLogger(self.__class__.__name__.lower())
-        self.objects = {}
-
-    def __call__(self, *args, **kwargs):
-        for key, value in kwargs.iteritems():
-            self.env[key] = value
-
-        return self.__iter__()
-
-    def __iter__(self):
-        self.parse(self.el)
-
-        if self.item_xpath is not None:
-            for el in self.el.xpath(self.item_xpath):
-                for obj in self.handle_element(el):
-                    if not self.flush_at_end:
-                        yield obj
-        else:
-            for obj in self.handle_element(self.el):
-                if not self.flush_at_end:
-                    yield obj
-
-        if self.flush_at_end:
-            for obj in self.objects.itervalues():
-                yield obj
-
-        self.check_next_page()
-
-    def check_next_page(self):
-        if not hasattr(self, 'next_page'):
-            return
-
-        next_page = getattr(self, 'next_page')
-        try:
-            value = self.use_selector(next_page)
-        except (AttributeNotFound, XPathNotFound):
-            return
-
-        if value is None:
-            return
-
-        raise NextPage(value)
-
-
-    def store(self, obj):
-        if obj.id:
-            if obj.id in self.objects:
-                if self.ignore_duplicate:
-                    self.logger.warning('There are two objects with the same ID! %s' % obj.id)
-                    return
-                else:
-                    raise DataError('There are two objects with the same ID! %s' % obj.id)
-            self.objects[obj.id] = obj
-        return obj
-
-    def handle_element(self, el):
-        for attrname in dir(self):
-            attr = getattr(self, attrname)
-            if isinstance(attr, type) and issubclass(attr, AbstractElement) and attr != type(self):
-                for obj in attr(self.page, self, el):
-                    obj = self.store(obj)
-                    if obj:
-                        yield obj
-
-
-class SkipItem(Exception):
-    """
-    Raise this exception in an :class:`ItemElement` subclass to skip an item.
-    """
-
-
-class _ItemElementMeta(type):
-    """
-    Private meta-class used to keep order of obj_* attributes in :class:`ItemElement`.
-    """
-    def __new__(mcs, name, bases, attrs):
-        _attrs = []
-        for base in bases:
-            if hasattr(base, '_attrs'):
-                _attrs += base._attrs
-
-        filters = [(re.sub('^obj_', '', attr_name), attrs[attr_name]) for attr_name, obj in attrs.items() if attr_name.startswith('obj_')]
-        # constants first, then filters, then methods
-        filters.sort(key=lambda x: x[1]._creation_counter if hasattr(x[1], '_creation_counter') else (sys.maxint if callable(x[1]) else 0))
-
-        new_class = super(_ItemElementMeta, mcs).__new__(mcs, name, bases, attrs)
-        new_class._attrs = _attrs + [f[0] for f in filters]
-        return new_class
-
-
-class ItemElement(AbstractElement):
-    __metaclass__ = _ItemElementMeta
-
-    _attrs = None
-    klass = None
-    condition = None
-    validate = None
-
-    class Index(object):
-        pass
-
-    def __init__(self, *args, **kwargs):
-        super(ItemElement, self).__init__(*args, **kwargs)
-        self.obj = None
-
-    def build_object(self):
-        if self.klass is None:
-            return
-        return self.klass()
-
-    def __call__(self, obj=None):
-        if obj is not None:
-            self.obj = obj
-
-        for obj in self:
-            return obj
-
-    def __iter__(self):
-        if self.condition is not None and not self.condition():
-            return
-
-        try:
-            if self.obj is None:
-                self.obj = self.build_object()
-            self.parse(self.el)
-            for attr in self._attrs:
-                self.handle_attr(attr, getattr(self, 'obj_%s' % attr))
-        except SkipItem:
-            return
-
-        if self.validate is not None and not self.validate(self.obj):
-            return
-
-        yield self.obj
-
-    def handle_attr(self, key, func):
-        value = self.use_selector(func)
-        setattr(self.obj, key, value)
-
-
-class TableElement(ListElement):
-    head_xpath = None
-    cleaner = CleanText
-
-    def __init__(self, *args, **kwargs):
-        super(TableElement, self).__init__(*args, **kwargs)
-
-        self._cols = {}
-
-        columns = {}
-        for attrname in dir(self):
-            m = re.match('col_(.*)', attrname)
-            if m:
-                cols = getattr(self, attrname)
-                if not isinstance(cols, (list,tuple)):
-                    cols = [cols]
-                columns[m.group(1)] = [s.lower() for s in cols]
-
-        for colnum, el in enumerate(self.el.xpath(self.head_xpath)):
-            title = self.cleaner.clean(el).lower()
-            for name, titles in columns.iteritems():
-                if title in titles:
-                    self._cols[name] = colnum
-
-    def get_colnum(self, name):
-        return self._cols.get(name, None)
 
 
 class LoggedPage(object):

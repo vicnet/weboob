@@ -16,18 +16,18 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.radio import ICapRadio, Radio
-from weboob.capabilities.collection import ICapCollection
+from weboob.capabilities.radio import CapRadio, Radio
+from weboob.capabilities.collection import CapCollection
 from weboob.tools.backend import BaseBackend
 from .browser import NihonNoOtoBrowser
 
 __all__ = ['NihonNoOtoBackend']
 
-class NihonNoOtoBackend(BaseBackend, ICapRadio, ICapCollection):
+class NihonNoOtoBackend(BaseBackend, CapRadio, CapCollection):
     NAME = 'nihonnooto'
     MAINTAINER = u'Thomas Lecavelier'
     EMAIL = 'thomas-weboob@lecavelier.name'
-    VERSION = '0.j'
+    VERSION = '1.0'
     DESCRIPTION = u'« Le son du Japon » french operated web radio, diffusing japanese music'
     # License of your module
     LICENSE = 'AGPLv3+'

@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-from weboob.capabilities.bank import ICapBank
+from weboob.capabilities.bank import CapBank
 from weboob.tools.backend import BaseBackend, BackendConfig
 from weboob.tools.value import ValueBackendPassword
 
@@ -27,12 +27,12 @@ from .browser import ApivieBrowser
 __all__ = ['ApivieBackend']
 
 
-class ApivieBackend(BaseBackend, ICapBank):
+class ApivieBackend(BaseBackend, CapBank):
     NAME = 'apivie'
     DESCRIPTION = u'Apivie'
     MAINTAINER = u'Romain Bignon'
     EMAIL = 'romain@weboob.org'
-    VERSION = '0.j'
+    VERSION = '1.0'
 
     BROWSER = ApivieBrowser
 
