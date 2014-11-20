@@ -18,7 +18,6 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from .backend import WellsFargoBackend
+from .module import WellsFargoModule
 
-__all__ = ['WellsFargoBackend']
-
+__all__ = ['WellsFargoModule']

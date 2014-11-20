@@ -17,9 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-
-
-
+from __future__ import print_function
 
 from weboob.capabilities.pricecomparison import CapPriceComparison
 from weboob.tools.html import html2text
@@ -76,8 +74,8 @@ class PricesFormatter(PrettyFormatter):
 
 class Comparoob(ReplApplication):
     APPNAME = 'comparoob'
-    VERSION = '1.0'
-    COPYRIGHT = 'Copyright(C) 2012 Romain Bignon'
+    VERSION = '1.1'
+    COPYRIGHT = 'Copyright(C) 2012-YEAR Romain Bignon'
     DESCRIPTION = "Console application to compare products."
     SHORT_DESCRIPTION = "compare products"
     DEFAULT_FORMATTER = 'table'
@@ -97,7 +95,7 @@ class Comparoob(ReplApplication):
         what product to compare.
         """
         products = []
-        for backend, product in self.do('search_products', pattern):
+        for product in self.do('search_products', pattern):
             double = False
             for prod in products:
                 if product.name == prod.name:
@@ -108,25 +106,25 @@ class Comparoob(ReplApplication):
 
         product = None
         if len(products) == 0:
-            print >>self.stderr, 'Error: no product found with this pattern'
+            print('Error: no product found with this pattern', file=self.stderr)
             return 1
         elif len(products) == 1:
             product = products[0]
         else:
-            print 'What product do you want to compare?'
+            print('What product do you want to compare?')
             for i, p in enumerate(products):
-                print '  %s%2d)%s %s' % (self.BOLD, i+1, self.NC, p.name)
+                print('  %s%2d)%s %s' % (self.BOLD, i+1, self.NC, p.name))
             r = int(self.ask('  Select a product', regexp='\d+'))
             while product is None:
                 if r <= 0 or r > len(products):
-                    print 'Error: Please enter a valid ID'
+                    print('Error: Please enter a valid ID')
                     continue
                 product = products[r-1]
 
         self.change_path([u'prices'])
         self.start_format()
         products = []
-        for backend, price in self.do('iter_prices', product):
+        for price in self.do('iter_prices', product):
             products.append(price)
         for price in sorted(products, key=self._get_price):
             self.cached_format(price)
@@ -146,12 +144,12 @@ class Comparoob(ReplApplication):
         Get information about a product.
         """
         if not _id:
-            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('info', short=True)
+            print('This command takes an argument: %s' % self.get_command_help('info', short=True), file=self.stderr)
             return 2
 
         price = self.get_object(_id, 'get_price')
         if not price:
-            print >>self.stderr, 'Price not found: %s' % _id
+            print('Price not found: %s' % _id, file=self.stderr)
             return 3
 
         self.start_format()

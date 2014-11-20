@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 
 from datetime import timedelta
 from email import message_from_string, message_from_file
@@ -104,8 +105,8 @@ class IssuesListFormatter(PrettyFormatter):
 
 class BoobTracker(ReplApplication):
     APPNAME = 'boobtracker'
-    VERSION = '1.0'
-    COPYRIGHT = 'Copyright(C) 2011 Romain Bignon'
+    VERSION = '1.1'
+    COPYRIGHT = 'Copyright(C) 2011-YEAR Romain Bignon'
     DESCRIPTION = "Console application allowing to create, edit, view bug tracking issues."
     SHORT_DESCRIPTION = "manage bug tracking issues"
     CAPS = CapBugTracker
@@ -156,7 +157,7 @@ class BoobTracker(ReplApplication):
         elif len(path) > 0:
             query.project = path[0]
         else:
-            print >>self.stderr, 'Please enter a project name'
+            print('Please enter a project name', file=self.stderr)
             return 1
 
         query.author = self.options.author
@@ -167,7 +168,7 @@ class BoobTracker(ReplApplication):
         query.status = self.options.status
 
         self.change_path([query.project, u'search'])
-        for backend, issue in self.do('iter_issues', query, backends=backends):
+        for issue in self.do('iter_issues', query, backends=backends):
             self.add_object(issue)
             self.format(issue)
 
@@ -183,12 +184,12 @@ class BoobTracker(ReplApplication):
         Get an issue and display it.
         """
         if not line:
-            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('get', short=True)
+            print('This command takes an argument: %s' % self.get_command_help('get', short=True), file=self.stderr)
             return 2
 
         issue = self.get_object(line, 'get_issue')
         if not issue:
-            print >>self.stderr, 'Issue not found: %s' % line
+            print('Issue not found: %s' % line, file=self.stderr)
             return 3
         self.format(issue)
 
@@ -226,7 +227,7 @@ class BoobTracker(ReplApplication):
         try:
             hours = float(hours)
         except ValueError:
-            print >>self.stderr, 'Error: HOURS parameter may be a float'
+            print('Error: HOURS parameter may be a float', file=self.stderr)
             return 1
 
         id, backend_name = self.parse_id(id, unique_backend=True)
@@ -398,8 +399,8 @@ class BoobTracker(ReplApplication):
 
             try:
                 issue = backend.post_issue(issue)
-                print 'Issue %s %s' % (self.formatter.colored(issue.fullid, 'red', 'bold'),
-                                       'updated' if edit else 'created')
+                print('Issue %s %s' % (self.formatter.colored(issue.fullid, 'red', 'bold'),
+                                       'updated' if edit else 'created'))
                 if edit:
                     self.format(issue)
                 elif email_to:
@@ -447,7 +448,7 @@ Weboob Team
            --status STATUS
         """
         if not line.strip():
-            print 'Please give the project name'
+            print('Please give the project name')
             return 1
 
         project, backend_name = self.parse_id(line, unique_backend=True)
@@ -481,7 +482,7 @@ Weboob Team
         _id, key, value = self.parse_command_args(line, 3, 1)
         issue = self.get_object(_id, 'get_issue')
         if not issue:
-            print >>self.stderr, 'Issue not found: %s' % _id
+            print('Issue not found: %s' % _id, file=self.stderr)
             return 3
 
         return self.edit_issue(issue, edit=True)
@@ -499,4 +500,4 @@ Weboob Team
 
         Attach a file to an issue (Not implemented yet).
         """
-        print >>self.stderr, 'Not implemented yet.'
+        print('Not implemented yet.', file=self.stderr)

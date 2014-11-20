@@ -24,15 +24,12 @@ from decimal import Decimal, InvalidOperation
 
 from weboob.capabilities import NotAvailable
 from weboob.capabilities.bank import Account
-from weboob.tools.browser import BasePage
+from weboob.deprecated.browser import Page
 
 from .perso.transactions import Transaction
 
 
-__all__ = ['ProAccountsList', 'ProAccountHistory']
-
-
-class ProAccountsList(BasePage):
+class ProAccountsList(Page):
     COL_LABEL   = 1
     COL_ID      = 2
     COL_BALANCE = 3
@@ -53,7 +50,8 @@ class ProAccountsList(BasePage):
             try:
                 account.coming = Decimal(self.parser.tocleanstring(cols[self.COL_COMING]))
             except InvalidOperation:
-                self.logger.warning('Unable to parse coming value', exc_info=True)
+                if self.parser.tocleanstring(cols[self.COL_COMING]) != '-':
+                    self.logger.warning('Unable to parse coming value', exc_info=True)
                 account.coming = NotAvailable
             account._link_id = None
             account._stp = None
@@ -80,17 +78,31 @@ class ProAccountsList(BasePage):
         return accounts
 
 
-class ProAccountHistory(BasePage):
+class ProAccountHistory(Page):
     COL_DATE = 0
     COL_LABEL = 1
     COL_DEBIT = -2
     COL_CREDIT = -1
 
+    def on_loaded(self):
+        # If transactions are ordered by type, force order by date.
+        try:
+            checkbox = self.document.xpath('//input[@name="szTriDate"]')[0]
+        except IndexError:
+            return
+
+        if not 'checked' in checkbox.attrib:
+            self.browser.select_form(name='formtri')
+            self.browser['szTriDate'] = ['date']
+            self.browser['szTriRub'] = []
+            self.browser.submit()
+
     def iter_operations(self):
         for i, tr in enumerate(self.document.xpath('//tr[@class="hdoc1" or @class="hdotc1"]')):
-            if 'bgcolor' not in tr.attrib:
-                continue
             cols = tr.findall('td')
+
+            if len(cols) < 4:
+                continue
 
             op = Transaction(i)
 

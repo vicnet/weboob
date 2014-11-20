@@ -32,12 +32,12 @@ from weboob.capabilities.account import CapAccount, Account, AccountRegisterErro
 from weboob.core.backendscfg import BackendAlreadyExists
 from weboob.core.modules import ModuleLoadError
 from weboob.core.repositories import ModuleInstallError
-from weboob.tools.exceptions import BrowserUnavailable, BrowserIncorrectPassword, BrowserForbidden, BrowserSSLError
+from weboob.exceptions import BrowserUnavailable, BrowserIncorrectPassword, BrowserForbidden, BrowserSSLError
 from weboob.tools.value import Value, ValueBool, ValueFloat, ValueInt, ValueBackendPassword
 from weboob.tools.misc import to_unicode
 from weboob.tools.ordereddict import OrderedDict
 
-from .base import BaseApplication, MoreResultsAvailable
+from .base import Application, MoreResultsAvailable
 
 
 __all__ = ['ConsoleApplication', 'BackendNotGiven']
@@ -55,7 +55,7 @@ class BackendNotFound(Exception):
     pass
 
 
-class ConsoleApplication(BaseApplication):
+class ConsoleApplication(Application):
     """
     Base application class for CLI applications.
     """
@@ -64,7 +64,7 @@ class ConsoleApplication(BaseApplication):
 
     # shell escape strings
     if sys.platform == 'win32' \
-            or not os.isatty(sys.stdout.fileno()) \
+            or not sys.stdout.isatty() \
             or os.getenv('ANSI_COLORS_DISABLED') is not None:
         #workaround to disable bold
         BOLD   = ''
@@ -73,12 +73,8 @@ class ConsoleApplication(BaseApplication):
         BOLD   = '[1m'
         NC     = '[0m'    # no color
 
-    stdin = sys.stdin
-    stdout = sys.stdout
-    stderr = sys.stderr
-
     def __init__(self, option_parser=None):
-        BaseApplication.__init__(self, option_parser)
+        Application.__init__(self, option_parser)
         self.weboob.callbacks['login'] = self.login_cb
         self.enabled_backends = set()
 
@@ -124,7 +120,7 @@ class ConsoleApplication(BaseApplication):
     def check_loaded_backends(self, default_config=None):
         while len(self.enabled_backends) == 0:
             print('Warning: there is currently no configured backend for %s' % self.APPNAME)
-            if not os.isatty(self.stdout.fileno()) or not self.ask('Do you want to configure backends?', default=True):
+            if not self.stdout.isatty() or not self.ask('Do you want to configure backends?', default=True):
                 return False
 
             self.prompt_create_backends(default_config)
@@ -205,7 +201,7 @@ class ConsoleApplication(BaseApplication):
             sys.exit(1)
 
     def do(self, function, *args, **kwargs):
-        if not 'backends' in kwargs:
+        if 'backends' not in kwargs:
             kwargs['backends'] = self.enabled_backends
         return self.weboob.do(function, *args, **kwargs)
 
@@ -220,7 +216,7 @@ class ConsoleApplication(BaseApplication):
                 backend_name = backends[0][0]
             else:
                 raise BackendNotGiven(_id, backends)
-        if backend_name is not None and not backend_name in dict(backends):
+        if backend_name is not None and backend_name not in dict(backends):
             # Is the backend a short version of a real one?
             found = False
             for key in dict(backends):
@@ -524,7 +520,7 @@ class ConsoleApplication(BaseApplication):
                 text = f.read()
         else:
             if self.stdin.isatty():
-                print('Reading content from stdin... Type ctrl-D ' \
+                print('Reading content from stdin... Type ctrl-D '
                           'from an empty line to stop.')
             text = self.stdin.read()
         return text.decode(self.encoding)
@@ -576,7 +572,7 @@ class ConsoleApplication(BaseApplication):
                     print('New version of module %s has been installed. Retry to call the command.' % minfo.name)
                     return
 
-            if logging.root.level == logging.DEBUG:
+            if logging.root.level <= logging.DEBUG:
                 print(backtrace, file=self.stderr)
             else:
                 return True

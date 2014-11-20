@@ -1,8 +1,5 @@
 <%inherit file="layout.py"/>
-from weboob.tools.browser2 import HTMLPage
-
-
-__all__ = ['Page1', 'Page2']
+from weboob.browser.pages import HTMLPage
 
 
 class Page1(HTMLPage):

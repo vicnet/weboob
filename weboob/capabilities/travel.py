@@ -20,7 +20,7 @@
 
 import datetime
 
-from .base import CapBase, BaseObject, StringField, DecimalField, UserError
+from .base import Capability, BaseObject, StringField, DecimalField, UserError
 from .date import TimeField, DeltaField, DateField
 
 __all__ = ['Station', 'Departure', 'RoadStep', 'RoadmapError', 'RoadmapFilters', 'CapTravel']
@@ -95,10 +95,11 @@ class RoadmapFilters(BaseObject):
         BaseObject.__init__(self, '')
 
 
-class CapTravel(CapBase):
+class CapTravel(Capability):
     """
     Travel websites.
     """
+
     def iter_station_search(self, pattern):
         """
         Iterates on search results of stations.

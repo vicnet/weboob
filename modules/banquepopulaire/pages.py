@@ -24,12 +24,9 @@ from decimal import Decimal
 import re
 from mechanize import Cookie, FormNotFoundError
 
-from weboob.tools.browser import BasePage as _BasePage, BrowserUnavailable, BrokenPageError
+from weboob.deprecated.browser import Page as _BasePage, BrowserUnavailable, BrokenPageError
 from weboob.capabilities.bank import Account
 from weboob.tools.capabilities.bank.transactions import FrenchTransaction
-
-
-__all__ = ['LoginPage', 'IndexPage', 'AccountsPage', 'CardsPage', 'TransactionsPage', 'UnavailablePage', 'RedirectPage']
 
 
 class WikipediaARC4(object):
@@ -269,13 +266,13 @@ class AccountsPage(BasePage):
                     currency = Account.get_currency(m.group(1))
 
             for tr in div.getnext().xpath('.//tbody/tr'):
-                if not 'id' in tr.attrib:
+                if 'id' not in tr.attrib:
                     continue
 
                 args = dict(parse_qsl(tr.attrib['id']))
                 tds = tr.findall('td')
 
-                if len(tds) < 4 or not 'identifiant' in args:
+                if len(tds) < 4 or 'identifiant' not in args:
                     self.logger.warning('Unable to parse an account')
                     continue
 
@@ -455,7 +452,7 @@ class TransactionsPage(BasePage):
 
             # XXX Fucking hack to include the check number not displayed in the full label.
             if re.match("^CHEQUE ", t.label):
-               t.label = 'CHEQUE No: %s' % self.parser.tocleanstring(tds[self.COL_REF])
+                t.label = 'CHEQUE No: %s' % self.parser.tocleanstring(tds[self.COL_REF])
 
             yield t
 

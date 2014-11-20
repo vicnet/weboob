@@ -20,25 +20,23 @@
 
 import re
 
-from weboob.tools.browser2.page import HTMLPage, method, LoggedPage
-from weboob.tools.browser2.elements import ListElement, ItemElement
-from weboob.tools.browser2.filters import Regexp, CleanText, CleanDecimal, Format, Link
+from weboob.browser.pages import HTMLPage, LoggedPage
+from weboob.browser.elements import ListElement, ItemElement, method
+from weboob.browser.filters.standard import Regexp, CleanText, CleanDecimal, Format
+from weboob.browser.filters.html import Link
 
 from weboob.capabilities.bank import Account
 from weboob.tools.capabilities.bank.transactions import FrenchTransaction
 
 
-__all__ = ['LoginPage', 'HomePage', 'TransactionsPage']
-
-
 class LoginPage(HTMLPage):
     def enter_login(self, username):
-        form = self.get_form(nr=0)
+        form = self.get_form(nr=1)
         form['name'] = username
         form.submit()
 
     def enter_password(self, password):
-        form = self.get_form(nr=0)
+        form = self.get_form(nr=1)
         form['pass'] = password
         form.submit()
 

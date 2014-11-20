@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 
 from .base.weboobmc2 import Weboobmc
 from weboob.capabilities.video import BaseVideo, CapVideo
@@ -19,10 +20,10 @@ class Videoobmc(Weboobmc):
 
         fields = ['id', 'title', 'date', 'description', 'author', 'duration', 'thumbnail', 'url']
         try:
-            for _backend, video in self.weboob.do(self._do_complete, self.count, fields, 'search_videos', **kwargs):
+            for video in self.weboob.do(self._do_complete, self.count, fields, 'search_videos', **kwargs):
                 yield video
         except Exception as e:
-            print e
+            print(e)
 
     def get_video(self, video, _backend):
         backend = self.weboob.get_backend(_backend)
@@ -41,7 +42,7 @@ class Videoobmc(Weboobmc):
     def separate_collections_and_videos(self, objs):
         videos = []
         categories = []
-        for backend, obj in objs:
+        for obj in objs:
             if isinstance(obj, Collection):
                 categories.append(obj)
             else:
@@ -49,5 +50,5 @@ class Videoobmc(Weboobmc):
         return categories, videos
 
     def download(self, _id, dest, backend):
-        for backend, _video in self.weboob.do('get_video', _id, backends=backend):
+        for _video in self.weboob.do('get_video', _id, backends=backend):
             self.download_obj(_video, dest)

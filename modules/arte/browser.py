@@ -25,8 +25,8 @@ import urllib
 from weboob.capabilities import NotAvailable
 from weboob.capabilities.image import BaseImage
 from weboob.tools.json import json as simplejson
-from weboob.tools.browser import BaseBrowser
-from weboob.tools.browser.decorators import id2url
+from weboob.deprecated.browser import Browser
+from weboob.deprecated.browser.decorators import id2url
 
 from .pages import ArteLivePage, ArteLiveVideoPage
 from .video import ArteVideo, ArteLiveVideo
@@ -34,7 +34,7 @@ from .video import ArteVideo, ArteLiveVideo
 __all__ = ['ArteBrowser']
 
 
-class ArteBrowser(BaseBrowser):
+class ArteBrowser(Browser):
     DOMAIN = u'videos.arte.tv'
     ENCODING = None
     PAGES = {r'http://concert.arte.tv/\w+': ArteLivePage,
@@ -51,7 +51,7 @@ class ArteBrowser(BaseBrowser):
         self.lang = lang
         self.quality = quality
         self.order = order
-        BaseBrowser.__init__(self, *args, **kwargs)
+        Browser.__init__(self, *args, **kwargs)
 
     @id2url(ArteVideo.id2url)
     def get_video(self, url, video=None):

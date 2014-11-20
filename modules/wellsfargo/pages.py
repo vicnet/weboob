@@ -18,109 +18,71 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 from weboob.capabilities.bank import Account, Transaction
-from weboob.tools.browser import BasePage
-from weboob.tools.parsers import get_parser
-from weboob.tools.parsers.iparser import IParser
-from weboob.tools.mech import ClientForm
+from weboob.tools.capabilities.bank.transactions import \
+    AmericanTransaction as AmTr
+from weboob.browser.pages import HTMLPage, LoggedPage, RawPage
 from urllib import unquote
-from StringIO import StringIO
-from .parsers import StatementParser, clean_amount, clean_label
+from requests.cookies import morsel_to_cookie
+from .parsers import StatementParser, clean_label
 import itertools
 import re
 import datetime
-
-__all__ = ['LoginPage', 'LoggedInPage', 'SummaryPage']
-
-
-def form_with_control(control_name):
-    """
-    Form search helper.
-    Returns whether the form has a control with specified name.
-    """
-    def predicate(form):
-        try:
-            form.find_control(name=control_name)
-        except ClientForm.ControlNotFoundError:
-            return False
-        else:
-            return True
-    return predicate
+import Cookie
 
 
-class LoginPage(BasePage):
+class LoginPage(HTMLPage):
     def login(self, login, password):
-        self.browser.select_form(name='Signon')
-        self.browser['userid'] = login.encode(self.browser.ENCODING)
-        self.browser['password'] = password.encode(self.browser.ENCODING)
-        self.browser.submit(nologin=True)
+        form = self.get_form(xpath='//form[@name="Signon"]')
+        form['userid'] = login
+        form['password'] = password
+        form.submit()
 
 
-class LoginRedirectPage(BasePage):
-    def is_logged(self):
-        return True
+class LoginProceedPage(LoggedPage, HTMLPage):
+    is_here = '//script[contains(text(),"setAndCheckCookie")]'
+
+    def proceed(self):
+        script = self.doc.xpath('//script/text()')[0]
+        cookieStr = re.match('.*document\.cookie = "([^"]+)".*',
+                             script, re.DOTALL).group(1)
+        morsel = Cookie.Cookie(cookieStr).values()[0]
+        self.browser.session.cookies.set_cookie(morsel_to_cookie(morsel))
+        form = self.get_form()
+        return form.submit()
+
+
+class LoginRedirectPage(LoggedPage, HTMLPage):
+    is_here = 'contains(//meta[@http-equiv="Refresh"]/@content,' \
+                       '"SIGNON_PORTAL_PAUSE")'
 
     def redirect(self):
-        refresh = self.document.xpath(
+        refresh = self.doc.xpath(
             '//meta[@http-equiv="Refresh"]/@content')[0]
         url = re.match(r'^.*URL=(.*)$', refresh).group(1)
-        self.browser.location(url)
+        return self.browser.location(url)
 
 
-class LoggedInPage(BasePage):
-    def is_logged(self):
-        if type(self.document) is str:
-            return True
-        else:
-            return bool(self.document.xpath(u'//a[text()="Sign Off"]')) \
-                or bool(self.document.xpath(u'//title[text()="Splash Page"]'))
+class LoggedInPage(HTMLPage):
+    @property
+    def logged(self):
+        return bool(self.doc.xpath(u'//a[text()="Sign Off"]')) \
+            or bool(self.doc.xpath(u'//title[text()="Splash Page"]'))
 
 
 class SummaryPage(LoggedInPage):
+    is_here = u'//title[contains(text(),"Account Summary")]'
+
     def to_activity(self):
-        href = self.document.xpath(u'//a[text()="Account Activity"]/@href')[0]
+        href = self.doc.xpath(u'//a[text()="Account Activity"]/@href')[0]
         self.browser.location(href)
 
     def to_statements(self):
-        href = self.document.xpath('//a[text()="Statements & Documents"]'
-                                   '/@href')[0]
+        href = self.doc.xpath('//a[text()="Statements & Documents"]'
+                              '/@href')[0]
         self.browser.location(href)
 
 
-class DynamicPage(LoggedInPage):
-    """
-    Most of Wells Fargo pages have the same URI pattern.
-    Some of these pages are HTML, some are PDF.
-    """
-    def sub_page(self):
-        page = None
-        if type(self.document) is str:
-            page = StatementSubPage
-        elif u'Account Activity' in self._title():
-            name = self._account_name()
-            if u'CHECKING' in name or u'SAVINGS' in name:
-                page = ActivityCashSubPage
-            elif u'CARD' in name:
-                page = ActivityCardSubPage
-        elif u'Statements & Documents' in self._title():
-            page = StatementsSubPage
-        assert page
-        return page(self)
-
-    def _title(self):
-        return self.document.xpath(u'//title/text()')[0]
-
-    def _account_name(self):
-        return self.document.xpath(
-            u'//select[@name="selectedAccountUID"]'
-            u'/option[@selected="selected"]/text()')[0]
-
-
-class SubPage(object):
-    def __init__(self, page):
-        self.page = page
-
-
-class AccountSubPage(SubPage):
+class AccountPage(LoggedInPage):
     def account_id(self, name=None):
         if name:
             return name[-4:] # Last 4 digits of "BLAH XXXXXXX1234"
@@ -128,22 +90,13 @@ class AccountSubPage(SubPage):
             return self.account_id(self.account_name())
 
 
-class ActivitySubPage(AccountSubPage):
-    def __init__(self, *args, **kwargs):
-        AccountSubPage.__init__(self, *args, **kwargs)
-
-        # As of 2014-07-03, there are few nested "optgroup" nodes on
-        # the account activity pages, which is a violation of HTML
-        # standard and cannot be parsed by mechanize's Browser.select_form.
-        resp = self.page.browser.response()
-        resp.set_data(re.sub('</?optgroup[^>]*>', '', resp.get_data()))
-        self.page.browser.set_response(resp)
-
-    def is_activity(self):
-        return True
+class ActivityPage(AccountPage):
+    def is_here(self):
+        return bool(self.doc.xpath(
+            u'contains(//title/text(),"Account Activity")'))
 
     def accounts_names(self):
-        return self.page.document.xpath(
+        return self.doc.xpath(
             u'//select[@name="selectedAccountUID"]/option/text()')
 
     def accounts_ids(self):
@@ -151,18 +104,19 @@ class ActivitySubPage(AccountSubPage):
 
     def account_uid(self, id_=None):
         if id_:
-            return self.page.document.xpath(
+            return self.doc.xpath(
                 u'//select[@name="selectedAccountUID"]'
                 u'/option[contains(text(),"%s")]/@value' % id_)[0]
         else:
-            return self.page.document.xpath(
+            return self.doc.xpath(
                 u'//select[@name="selectedAccountUID"]'
                 u'/option[@selected="selected"]/@value')[0]
 
     def account_name(self):
-        return self.page.document.xpath(
-            u'//select[@name="selectedAccountUID"]'
-            u'/option[@selected="selected"]/text()')[0]
+        for name in self.doc.xpath(u'//select[@name="selectedAccountUID"]'
+                                   u'/option[@selected="selected"]/text()'):
+            return name
+        return u''
 
     def account_type(self, name=None):
         raise NotImplementedError()
@@ -171,9 +125,9 @@ class ActivitySubPage(AccountSubPage):
         raise NotImplementedError()
 
     def to_account(self, id_):
-        self.page.browser.select_form(name='AccountActivityForm')
-        self.page.browser['selectedAccountUID'] = [self.account_uid(id_)]
-        self.page.browser.submit()
+        form = self.get_form(xpath='//form[@name="AccountActivityForm"]')
+        form['selectedAccountUID'] = [self.account_uid(id_)]
+        form.submit()
 
     def get_account(self):
         name = self.account_name()
@@ -186,7 +140,7 @@ class ActivitySubPage(AccountSubPage):
         account.id = id_
         account.label = name
         account.currency = currency
-        account.balance = clean_amount(balance)
+        account.balance = AmTr.decimal_amount(balance)
         account.type = type_
         return account
 
@@ -200,7 +154,12 @@ class ActivitySubPage(AccountSubPage):
         raise NotImplementedError()
 
 
-class ActivityCashSubPage(ActivitySubPage):
+class ActivityCashPage(ActivityPage):
+    def is_here(self):
+        return super(ActivityCashPage, self).is_here() and \
+            (u'CHECKING' in self.account_name() or
+             u'SAVINGS' in self.account_name())
+
     def account_type(self, name=None):
         name = name or self.account_name()
         if u'CHECKING' in name:
@@ -211,25 +170,24 @@ class ActivityCashSubPage(ActivitySubPage):
             return Account.TYPE_UNKNOWN
 
     def account_balance(self):
-        return self.page.document.xpath(
+        return self.doc.xpath(
             u'//td[@headers="currentPostedBalance"]/span/text()')[0]
 
     def since_last_statement(self):
-        b = self.page.browser
-        b.select_form(predicate=form_with_control(
-            'showTabDDACommand.transactionTypeFilterValue'))
-        b['showTabDDACommand.transactionTypeFilterValue'] = [
+        form = self.get_form(xpath='//form[@id="ddaShowForm"]')
+        form['showTabDDACommand.transactionTypeFilterValue'] = [
             u'All Transactions']
-        b['showTabDDACommand.timeFilterValue'] = ['8']
-        b.submit()
+        form['showTabDDACommand.timeFilterValue'] = ['8']
+        form.submit()
+        return True
 
     def iter_transactions(self):
-        for row in self.page.document.xpath('//tr/th[@headers='
-                                            '"postedHeader dateHeader"]/..'):
+        for row in self.doc.xpath('//tr/th[@headers='
+                                  '"postedHeader dateHeader"]/..'):
             date = row.xpath('th[@headers="postedHeader '
                              'dateHeader"]/text()')[0]
             desc = row.xpath('td[@headers="postedHeader '
-                             'descriptionHeader"]/div/text()')[0]
+                             'descriptionHeader"]/span/text()')[0]
             deposit = row.xpath('td[@headers="postedHeader '
                                 'depositsConsumerHeader"]/span/text()')[0]
             withdraw = row.xpath('td[@headers="postedHeader '
@@ -240,9 +198,9 @@ class ActivityCashSubPage(ActivitySubPage):
             desc = clean_label(desc)
 
             deposit = deposit.strip()
-            deposit = clean_amount(deposit or '0')
+            deposit = AmTr.decimal_amount(deposit or '0')
             withdraw = withdraw.strip()
-            withdraw = clean_amount(withdraw or '0')
+            withdraw = AmTr.decimal_amount(withdraw or '0')
 
             amount = deposit - withdraw
 
@@ -256,24 +214,28 @@ class ActivityCashSubPage(ActivitySubPage):
             yield trans
 
     def next_(self):
-        links = self.page.document.xpath('//a[@title="Go To Next Page"]/@href')
+        links = self.doc.xpath('//a[@title="Go To Next Page"]/@href')
         if links:
-            self.page.browser.location(links[0])
+            self.browser.location(links[0])
             return True
         else:
             return False
 
 
-class ActivityCardSubPage(ActivitySubPage):
+class ActivityCardPage(ActivityPage):
+    def is_here(self):
+        return super(ActivityCardPage, self).is_here() and \
+            u'CARD' in self.account_name()
+
     def account_type(self, name=None):
         return Account.TYPE_CARD
 
     def account_balance(self):
-        return self.page.document.xpath(
+        return self.doc.xpath(
             u'//td[@headers="outstandingBalance"]/text()')[0]
 
     def get_account(self):
-        account = ActivitySubPage.get_account(self)
+        account = ActivityPage.get_account(self)
 
         # Credit card is essentially a liability.
         # Negative amount means there's a payment due.
@@ -282,15 +244,18 @@ class ActivityCardSubPage(ActivitySubPage):
         return account
 
     def since_last_statement(self):
-        b = self.page.browser
-        b.select_form(predicate=form_with_control(
-            'showTabCommand.transactionTypeFilterValue'))
-        b['showTabCommand.transactionTypeFilterValue'] = ['sincelastStmt']
-        b.submit()
+        if self.doc.xpath('//select[@name="showTabCommand.'
+                                          'transactionTypeFilterValue"]'
+                          '/option[@value="sincelastStmt"]'):
+            form = self.get_form(xpath='//form[@id="creditCardShowForm"]')
+            form['showTabCommand.transactionTypeFilterValue'] = [
+                'sincelastStmt']
+            form.submit()
+            return True
 
     def iter_transactions(self):
-        for row in self.page.document.xpath('//tr/th[@headers='
-                                '"postedHeader transactionDateHeader"]/..'):
+        for row in self.doc.xpath('//tr/th[@headers='
+                                  '"postedHeader transactionDateHeader"]/..'):
             tdate = row.xpath('th[@headers="postedHeader '
                               'transactionDateHeader"]/text()')[0]
             pdate = row.xpath('td[@headers="postedHeader '
@@ -310,9 +275,9 @@ class ActivityCardSubPage(ActivitySubPage):
             ref = re.match('.*<REFERENCE ([^>]+)>.*', ref).group(1)
 
             if amount.startswith('+'):
-                amount = clean_amount(amount[1:])
+                amount = AmTr.decimal_amount(amount[1:])
             else:
-                amount = -clean_amount(amount)
+                amount = -AmTr.decimal_amount(amount)
 
             trans = Transaction(ref)
             trans.date = tdate
@@ -328,57 +293,44 @@ class ActivityCardSubPage(ActivitySubPage):
         return False
 
 
-class StatementsSubPage(AccountSubPage):
-    def __init__(self, *args, **kwargs):
-        AccountSubPage.__init__(self, *args, **kwargs)
-
-        # As of 2014-07-06, there are few "<br/>" nodes on
-        # the account statements pages, which is a violation of HTML
-        # standard and cannot be parsed by mechanize's Browser.select_form.
-        resp = self.page.browser.response()
-        resp.set_data(re.sub('<br */>', '', resp.get_data()))
-        self.page.browser.set_response(resp)
-
-    def is_statements(self):
-        return True
+class StatementsPage(AccountPage):
+    is_here = u'contains(//title/text(),"Statements")'
 
     def account_name(self):
-        return self.page.document.xpath(
+        return self.doc.xpath(
             u'//select[@name="selectedAccountKey"]'
             u'/option[@selected="selected"]/text()')[0]
 
     def account_uid(self, id_):
-        return self.page.document.xpath(
+        return self.doc.xpath(
             u'//select[@name="selectedAccountKey"]'
             u'/option[contains(text(),"%s")]/@value' % id_)[0]
 
     def to_account(self, id_):
-        self.page.browser.select_form(predicate=form_with_control(
-            'selectedAccountKey'))
-        self.page.browser['selectedAccountKey'] = [self.account_uid(id_)]
-        self.page.browser.submit()
+        form = self.get_form(xpath='//form[@id="statementsAndDocumentsModel"]')
+        form['selectedAccountKey'] = [self.account_uid(id_)]
+        form.submit()
 
     def year(self):
-        for text in self.page.document.xpath('//h2/strong/text()'):
+        for text in self.doc.xpath('//h2/strong/text()'):
             try:
                 return int(text)
             except ValueError:
                 pass
 
     def years(self):
-        for text in self.page.document.xpath('//h2//strong/text()'):
+        for text in self.doc.xpath('//h2//strong/text()'):
             try:
                 yield int(text)
             except ValueError:
                 pass
 
     def to_year(self, year):
-        href = self.page.document.xpath('//h2/a/strong[text()="%s"]'
-                                        '/../@href' % year)[0]
-        self.page.browser.location(href)
+        href = self.doc.xpath('//h2/a/strong[text()="%s"]/../@href' % year)[0]
+        self.browser.location(href)
 
     def statements(self):
-        for outer_uri in self.page.document.xpath(
+        for outer_uri in self.doc.xpath(
                                 '//table[@id="listOfStatements"]'
                                 '//a[contains(text(), "Statement")]/@href'):
             inner_uri = re.match('.*destinationClickUrl=([^&]+)&.*',
@@ -386,14 +338,13 @@ class StatementsSubPage(AccountSubPage):
             yield unquote(inner_uri)
 
 
-class StatementSubPage(SubPage):
-
+class StatementPage(LoggedPage, RawPage):
     def __init__(self, *args, **kwArgs):
-        SubPage.__init__(self, *args, **kwArgs)
-        self._parser = StatementParser(self.page.document)
+        RawPage.__init__(self, *args, **kwArgs)
+        self._parser = StatementParser(self.doc)
 
-    def is_statement(self):
-        return True
+    def is_here(self):
+        return self.doc[:4] == '%PDF'
 
     def iter_transactions(self):
         # Maintain a nice consistent newer-to-older order of transactions.
@@ -404,23 +355,3 @@ class StatementSubPage(SubPage):
             cmp=lambda t1, t2: cmp(t2.date, t1.date) or
                                cmp(t1.label, t2.label) or
                                cmp(t1.amount, t2.amount))
-
-
-class DynamicParser(IParser):
-    def __init__(self):
-        self._html = get_parser()()
-        self._raw = get_parser('raw')()
-        self._parser = None
-
-    def parse(self, data, encoding=None):
-        # Ugly hack to figure out the document type
-        s = data.read()
-        if s[:4] == '%PDF':
-            self._parser = self._raw
-        else:
-            self._parser = self._html
-        return self._parser.parse(StringIO(s), encoding)
-
-    def __getattr__(self, name):
-        assert self._parser
-        return getattr(self._parser, name)

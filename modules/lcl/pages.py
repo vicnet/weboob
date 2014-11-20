@@ -26,12 +26,9 @@ import random
 
 
 from weboob.capabilities.bank import Account
-from weboob.tools.browser import BasePage, BrowserUnavailable
+from weboob.deprecated.browser import Page, BrowserUnavailable
 from weboob.tools.captcha.virtkeyboard import MappedVirtKeyboard, VirtKeyboardError
 from weboob.tools.capabilities.bank.transactions import FrenchTransaction
-
-
-__all__ = ['SkipPage', 'LoginPage', 'AccountsPage', 'AccountHistoryPage', 'ContractsPage']
 
 
 class LCLVirtKeyboard(MappedVirtKeyboard):
@@ -70,11 +67,11 @@ class LCLVirtKeyboard(MappedVirtKeyboard):
         return code
 
 
-class SkipPage(BasePage):
+class SkipPage(Page):
     pass
 
 
-class LoginPage(BasePage):
+class LoginPage(Page):
     def on_loaded(self):
         try:
             self.browser.select_form(name='form')
@@ -135,7 +132,8 @@ class LoginPage(BasePage):
         errors = self.document.xpath(u'//div[@class="erreur" or @class="messError"]')
         return len(errors) > 0
 
-class ContractsPage(BasePage):
+
+class ContractsPage(Page):
     def on_loaded(self):
         self.select_contract()
 
@@ -146,7 +144,7 @@ class ContractsPage(BasePage):
         self.browser.submit(nologin=True)
 
 
-class AccountsPage(BasePage):
+class AccountsPage(Page):
     def on_loaded(self):
         warn = self.document.xpath('//div[@id="attTxt"]')
         if len(warn) > 0:
@@ -237,7 +235,7 @@ class Transaction(FrenchTransaction):
                ]
 
 
-class AccountHistoryPage(BasePage):
+class AccountHistoryPage(Page):
     def get_table(self):
         tables=self.document.findall("//table[@class='tagTab pyjama']")
         for table in tables:

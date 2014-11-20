@@ -23,12 +23,10 @@ from datetime import datetime, time
 import weboob.tools.date as date_util
 from .calendar import BiplanCalendarEventConcert, BiplanCalendarEventTheatre
 
-from weboob.tools.browser2.elements import ItemElement, SkipItem, ListElement
-from weboob.tools.browser2.page import HTMLPage, method
-from weboob.tools.browser2.filters import Filter, Link, CleanText, Env, Regexp, CombineDate, CleanHTML
-
-
-__all__ = ['ProgramPage', 'EventPage']
+from weboob.browser.elements import ItemElement, SkipItem, ListElement, method
+from weboob.browser.pages import HTMLPage
+from weboob.browser.filters.standard import Filter, CleanText, Env, Regexp, CombineDate
+from weboob.browser.filters.html import Link, CleanHTML
 
 
 class BiplanPrice(Filter):
@@ -68,7 +66,7 @@ class StartTime(Filter):
     def filter(self, el):
         index = 1 if len(el) > 1 else 0
         content = CleanText.clean(CleanText('.', ['HORAIRES'])(el[index]))
-        a_time = content.split(' - ')[-2]
+        a_time = content.split(' - ')[0]
         regexp = re.compile(ur'(?P<hh>\d+)h?(?P<mm>\d+)')
         m = regexp.search(a_time)
         return time(int(m.groupdict()['hh'] or 0), int(m.groupdict()['mm'] or 0))

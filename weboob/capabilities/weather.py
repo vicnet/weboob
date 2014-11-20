@@ -20,7 +20,7 @@
 
 from datetime import datetime, date
 
-from .base import CapBase, BaseObject, Field, FloatField, \
+from .base import Capability, BaseObject, Field, FloatField, \
                   StringField, UserError
 from .date import DateField
 
@@ -32,7 +32,7 @@ class Temperature(BaseObject):
     value =      FloatField('Temperature value')
     unit =       StringField('Input unit')
 
-    def __init__(self, value, unit = u''):
+    def __init__(self, value='', unit = u''):
         BaseObject.__init__(self, value)
         self.value = value
         if unit not in [u'C', u'F']:
@@ -69,7 +69,7 @@ class Forecast(BaseObject):
     high =      Field('High temperature', Temperature)
     text =      StringField('Comment on forecast')
 
-    def __init__(self, date, low, high, text, unit):
+    def __init__(self, date='', low=None, high=None, text=None, unit=None):
         BaseObject.__init__(self, unicode(date))
         self.date = date
         self.low = Temperature(low, unit)
@@ -85,7 +85,7 @@ class Current(BaseObject):
     text =      StringField('Comment about current weather')
     temp =      Field('Current temperature', Temperature)
 
-    def __init__(self, date, temp, text, unit):
+    def __init__(self, date='', temp=None, text=None, unit=None):
         BaseObject.__init__(self, unicode(date))
         self.date = date
         self.text = text
@@ -98,7 +98,7 @@ class City(BaseObject):
     """
     name =      StringField('Name of city')
 
-    def __init__(self, id, name):
+    def __init__(self, id='', name=None):
         BaseObject.__init__(self, id)
         self.name = name
 
@@ -109,10 +109,11 @@ class CityNotFound(UserError):
     """
 
 
-class CapWeather(CapBase):
+class CapWeather(Capability):
     """
     Capability for weather websites.
     """
+
     def iter_city_search(self, pattern):
         """
         Look for a city.

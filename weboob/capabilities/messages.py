@@ -21,7 +21,7 @@
 import datetime
 import time
 
-from .base import CapBase, BaseObject, NotLoaded, Field, StringField, \
+from .base import Capability, BaseObject, NotLoaded, Field, StringField, \
                   IntField, UserError
 from .date import DateField
 
@@ -169,10 +169,11 @@ class Thread(_Thread):
                     yield m
 
 
-class CapMessages(CapBase):
+class CapMessages(Capability):
     """
     Capability to read messages.
     """
+
     def iter_threads(self):
         """
         Iterates on threads, from newers to olders.
@@ -213,10 +214,11 @@ class CantSendMessage(UserError):
     """
 
 
-class CapMessagesPost(CapBase):
+class CapMessagesPost(Capability):
     """
     This capability allow user to send a message.
     """
+
     def post_message(self, message):
         """
         Post a message.

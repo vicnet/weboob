@@ -32,15 +32,11 @@ import urllib
 import io
 
 from weboob.capabilities.base import UserError
-from weboob.tools.browser import BasePage, BrokenPageError, BrowserIncorrectPassword
+from weboob.deprecated.browser import Page, BrokenPageError, BrowserIncorrectPassword
 from weboob.tools.json import json
 
 
-__all__ = ['LoginPage', 'LoginRedirectPage', 'ForbiddenVideo', 'ForbiddenVideoPage',
-           'VerifyAgePage', 'VerifyControversyPage', 'VideoPage']
-
-
-class LoginPage(BasePage):
+class LoginPage(Page):
     def on_loaded(self):
         errors = []
         for errdiv in self.parser.select(self.document.getroot(), 'div.errormsg'):
@@ -56,7 +52,7 @@ class LoginPage(BasePage):
         self.browser.submit()
 
 
-class LoginRedirectPage(BasePage):
+class LoginRedirectPage(Page):
     pass
 
 
@@ -64,7 +60,7 @@ class ForbiddenVideo(UserError):
     pass
 
 
-class BaseYoutubePage(BasePage):
+class BaseYoutubePage(Page):
     def is_logged(self):
         try:
             self.parser.select(self.document.getroot(), 'span#yt-masthead-account-picker', 1)
@@ -183,7 +179,7 @@ class VideoPage(BaseYoutubePage):
     }
 
     def __init__(self, *args, **kwargs):
-        BasePage.__init__(self, *args, **kwargs)
+        Page.__init__(self, *args, **kwargs)
         self._player_cache = {}
 
     def _extract_signature_function(self, video_id, player_url, slen):
@@ -868,6 +864,7 @@ class VideoPage(BaseYoutubePage):
 
     def _extract_from_m3u8(self, manifest_url, video_id):
         url_map = {}
+
         def _get_urls(_manifest):
             lines = _manifest.split('\n')
             urls = filter(lambda l: l and not l.startswith('#'), lines)

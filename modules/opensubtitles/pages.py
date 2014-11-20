@@ -21,16 +21,14 @@ import re
 
 from weboob.capabilities.subtitle import Subtitle
 from weboob.capabilities.base import NotAvailable, NotLoaded
-from weboob.tools.browser import BasePage
+from weboob.deprecated.browser import Page
 from weboob.applications.suboob.suboob import LANGUAGE_CONV
 
 
-__all__ = ['SubtitlesPage', 'SubtitlePage', 'SearchPage']
-
-
-class SearchPage(BasePage):
+class SearchPage(Page):
     """ Page which contains results as a list of movies
     """
+
     def iter_subtitles(self):
         tabresults = self.parser.select(self.document.getroot(), 'table#search_results')
         if len(tabresults) > 0:
@@ -49,9 +47,10 @@ class SearchPage(BasePage):
                             yield subtitle
 
 
-class SubtitlesPage(BasePage):
+class SubtitlesPage(Page):
     """ Page which contains several subtitles for a single movie
     """
+
     def iter_subtitles(self):
         tabresults = self.parser.select(self.document.getroot(), 'table#search_results')
         if len(tabresults) > 0:
@@ -102,9 +101,10 @@ class SubtitlesPage(BasePage):
             return subtitle
 
 
-class SubtitlePage(BasePage):
+class SubtitlePage(Page):
     """ Page which contains a single subtitle for a movie
     """
+
     def get_subtitle(self):
         desc = NotAvailable
         a = self.parser.select(self.document.getroot(), 'a#bt-dwl', 1)

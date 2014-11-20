@@ -17,6 +17,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
+
 from datetime import time, datetime
 
 from weboob.tools.date import parse_date
@@ -33,7 +35,11 @@ class UpcomingSimpleFormatter(IFormatter):
     MANDATORY_FIELDS = ('id', 'start_date', 'category', 'summary')
 
     def format_obj(self, obj, alias):
-        return u'%s - %s - %s - %s' % (obj.backend, obj.category, obj.start_date.strftime('%H:%M'), obj.summary)
+        result = u'%s - %s' % (obj.backend, obj.category)
+        if not empty(obj.start_date):
+            result += u' - %s' % obj.start_date.strftime('%H:%M')
+        result += u' - %s' % obj.summary
+        return result
 
 
 class ICalFormatter(IFormatter):
@@ -47,8 +53,13 @@ class ICalFormatter(IFormatter):
 
     def format_obj(self, obj, alias):
         result = u'BEGIN:VEVENT\n'
-        result += u'DTSTART:%s\n' % obj.start_date.strftime("%Y%m%dT%H%M%SZ")
-        result += u'DTEND:%s\n' % obj.end_date.strftime("%Y%m%dT%H%M%SZ")
+
+        start_date = obj.start_date if not empty(obj.start_date) else datetime.now()
+        result += u'DTSTART:%s\n' % start_date.strftime("%Y%m%dT%H%M%SZ")
+
+        end_date = obj.end_date if not empty(obj.end_date) else datetime.combine(start_date, time.max)
+        result += u'DTEND:%s\n' % end_date.strftime("%Y%m%dT%H%M%SZ")
+
         result += u'SUMMARY:%s\n' % obj.summary
         result += u'UID:%s\n' % obj.id
         result += u'STATUS:%s\n' % obj.status
@@ -94,8 +105,12 @@ class UpcomingListFormatter(PrettyFormatter):
 
     def get_description(self, obj):
         result = u''
-        result += u'\tDate: %s\n' % obj.start_date.strftime('%A %d %B %Y')
-        result += u'\tHour: %s - %s \n' % (obj.start_date.strftime('%H:%M'), obj.end_date.strftime('%H:%M'))
+        if not empty(obj.start_date):
+            result += u'\tDate: %s\n' % obj.start_date.strftime('%A %d %B %Y')
+            result += u'\tHour: %s' % obj.start_date.strftime('%H:%M')
+            if not empty(obj.end_date):
+                result += ' - %s' % obj.end_date.strftime('%H:%M')
+            result += '\n'
         return result.strip('\n\t')
 
 
@@ -104,8 +119,12 @@ class UpcomingFormatter(IFormatter):
 
     def format_obj(self, obj, alias):
         result = u'%s%s - %s%s\n' % (self.BOLD, obj.category, obj.summary, self.NC)
-        result += u'Date: %s\n' % obj.start_date.strftime('%A %d %B %Y')
-        result += u'Hour: %s - %s\n' % (obj.start_date.strftime('%H:%M'), obj.end_date.strftime('%H:%M'))
+        if not empty(obj.start_date):
+            result += u'Date: %s\n' % obj.start_date.strftime('%A %d %B %Y')
+            result += u'Hour: %s' % obj.start_date.strftime('%H:%M')
+            if not empty(obj.end_date):
+                result += ' - %s' % obj.end_date.strftime('%H:%M')
+            result += '\n'
 
         if hasattr(obj, 'location') and not empty(obj.location):
             result += u'Location: %s\n' % obj.location
@@ -138,8 +157,8 @@ class UpcomingFormatter(IFormatter):
 
 class Boobcoming(ReplApplication):
     APPNAME = 'boobcoming'
-    VERSION = '1.0'
-    COPYRIGHT = 'Copyright(C) 2012 Bezleputh'
+    VERSION = '1.1'
+    COPYRIGHT = 'Copyright(C) 2012-YEAR Bezleputh'
     DESCRIPTION = "Console application to see upcoming events."
     SHORT_DESCRIPTION = "see upcoming events"
     CAPS = CapCalendarEvent
@@ -173,15 +192,14 @@ class Boobcoming(ReplApplication):
 
         search for an event. Parameters interactively asked
         """
-
         query = Query()
         r = 'notempty'
         while r != '':
             for category in CATEGORIES.values:
-                print '  %s%2d)%s [%s] %s' % (self.BOLD,
+                print('  %s%2d)%s [%s] %s' % (self.BOLD,
                                               CATEGORIES.index[category] + 1,
                                               self.NC,
-                                              'x' if category in query.categories else ' ', category)
+                                              'x' if category in query.categories else ' ', category))
             r = self.ask('  Select category (or empty to stop)', regexp='(\d+|)', default='')
             if not r.isdigit():
                 continue
@@ -211,7 +229,7 @@ class Boobcoming(ReplApplication):
 
             self.change_path([u'events'])
             self.start_format()
-            for backend, event in self.do('search_events', query):
+            for event in self.do('search_events', query):
                 if event:
                     self.cached_format(event)
 
@@ -230,7 +248,7 @@ class Boobcoming(ReplApplication):
         if line:
             _date = parse_date(line)
             if not _date:
-                print >>self.stderr, 'Invalid argument: %s' % self.get_command_help('list')
+                print('Invalid argument: %s' % self.get_command_help('list'), file=self.stderr)
                 return 2
 
             date_from = datetime.combine(_date, time.min)
@@ -239,7 +257,7 @@ class Boobcoming(ReplApplication):
             date_from = datetime.now()
             date_to = None
 
-        for backend, event in self.do('list_events', date_from, date_to):
+        for event in self.do('list_events', date_from, date_to):
             self.cached_format(event)
 
     def complete_info(self, text, line, *ignored):
@@ -255,13 +273,13 @@ class Boobcoming(ReplApplication):
         """
 
         if not _id:
-            print >>self.stderr, 'This command takes an argument: %s' % self.get_command_help('info', short=True)
+            print('This command takes an argument: %s' % self.get_command_help('info', short=True), file=self.stderr)
             return 2
 
         event = self.get_object(_id, 'get_event')
 
         if not event:
-            print >>self.stderr, 'Upcoming event not found: %s' % _id
+            print('Upcoming event not found: %s' % _id, file=self.stderr)
             return 3
 
         self.start_format()
@@ -278,7 +296,7 @@ class Boobcoming(ReplApplication):
         Export event in ICALENDAR format
         """
         if not line:
-            print >>self.stderr, 'This command takes at leat one argument: %s' % self.get_command_help('export')
+            print('This command takes at leat one argument: %s' % self.get_command_help('export'), file=self.stderr)
             return 2
 
         _file, args = self.parse_command_args(line, 2, req_n=1)
@@ -297,7 +315,7 @@ class Boobcoming(ReplApplication):
 
         if not args:
             _ids = []
-            for backend, event in self.do('list_events', datetime.now(), None):
+            for event in self.do('list_events', datetime.now(), None):
                 _ids.append(event.id)
         else:
             _ids = args.strip().split(' ')
@@ -306,7 +324,7 @@ class Boobcoming(ReplApplication):
             event = self.get_object(_id, 'get_event')
 
             if not event:
-                print >>self.stderr, 'Upcoming event not found: %s' % _id
+                print('Upcoming event not found: %s' % _id, file=self.stderr)
                 return 3
 
             l.append(event)
@@ -328,7 +346,7 @@ class Boobcoming(ReplApplication):
         ID is the identifier of the event.
         """
         if not line:
-            print >>self.stderr, 'This command takes at leat one argument: %s' % self.get_command_help('attends')
+            print('This command takes at leat one argument: %s' % self.get_command_help('attends'), file=self.stderr)
             return 2
 
         args = self.parse_command_args(line, 1, req_n=1)
@@ -346,7 +364,7 @@ class Boobcoming(ReplApplication):
         """
 
         if not line:
-            print >>self.stderr, 'This command takes at leat one argument: %s' % self.get_command_help('unattends')
+            print('This command takes at leat one argument: %s' % self.get_command_help('unattends'), file=self.stderr)
             return 2
 
         args = self.parse_command_args(line, 1, req_n=1)

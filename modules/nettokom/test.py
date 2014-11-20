@@ -21,11 +21,8 @@
 from weboob.tools.test import BackendTest
 
 
-__all__ = ['NettokomTest']
-
-
 class NettokomTest(BackendTest):
-    BACKEND = 'nettokom'
+    MODULE = 'nettokom'
 
     def test_details(self):
         for subscription in self.backend.iter_subscription():

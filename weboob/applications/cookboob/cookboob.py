@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
-
+from __future__ import print_function
 
 import codecs
 
@@ -74,8 +74,8 @@ class RecipeListFormatter(PrettyFormatter):
 
 class Cookboob(ReplApplication):
     APPNAME = 'cookboob'
-    VERSION = '1.0'
-    COPYRIGHT = 'Copyright(C) 2013 Julien Veyssier'
+    VERSION = '1.1'
+    COPYRIGHT = 'Copyright(C) 2013-YEAR Julien Veyssier'
     DESCRIPTION = "Console application allowing to search for recipes on various websites."
     SHORT_DESCRIPTION = "search and consult recipes"
     CAPS = CapRecipe
@@ -99,7 +99,7 @@ class Cookboob(ReplApplication):
         """
         recipe = self.get_object(id, 'get_recipe')
         if not recipe:
-            print >>self.stderr, 'Recipe not found: %s' % id
+            print('Recipe not found: %s' % id, file=self.stderr)
             return 3
 
         self.start_format()
@@ -132,7 +132,7 @@ class Cookboob(ReplApplication):
         if recipe:
             xmlstring = recipe.toKrecipesXml(backend_name or None)
             if dest == '-':
-                print xmlstring
+                print(xmlstring)
             else:
                 if not dest.endswith('.kreml'):
                     dest += '.kreml'
@@ -140,10 +140,10 @@ class Cookboob(ReplApplication):
                     with codecs.open(dest, 'w', 'utf-8') as f:
                         f.write(xmlstring)
                 except IOError as e:
-                    print >>self.stderr, 'Unable to write .kreml in "%s": %s' % (dest, e)
+                    print('Unable to write .kreml in "%s": %s' % (dest, e), file=self.stderr)
                     return 1
             return
-        print >>self.stderr, 'Recipe "%s" not found' % id
+        print('Recipe "%s" not found' % id, file=self.stderr)
         return 3
 
     @defaultcount(10)
@@ -155,5 +155,5 @@ class Cookboob(ReplApplication):
         """
         self.change_path([u'search'])
         self.start_format(pattern=pattern)
-        for backend, recipe in self.do('iter_recipes', pattern=pattern):
+        for recipe in self.do('iter_recipes', pattern=pattern):
             self.cached_format(recipe)
