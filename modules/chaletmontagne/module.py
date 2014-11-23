@@ -41,9 +41,9 @@ class ChaletMontagneModule(Module, CapHousing):
 #                                 choices={'c': 'Agency', 'p': 'Owner', 'a': 'All'}, default='a'))
 
     # inherited from CapHousing
-    def get_housing(self, _id):
-        #return self.browser.get_housing(_id)
-        pass
+    # called on 'info ID@chaletmontagne' but not with 'info ID'
+    def get_housing(self, id):
+        return self.browser.get_housing(id)
 
     # inherited from CapHousing
     def search_city(self, pattern):
@@ -54,12 +54,14 @@ class ChaletMontagneModule(Module, CapHousing):
 #        return self.browser.search_housings(query, self.config['advert_type'].get())
         return self.browser.search_housings(query)
 
-    #def fill_housing(self, housing, fields):
-        #return self.browser.get_housing(housing.id, housing)
+    def fill_housing(self, housing, fields):
+        # if fields set, get_housing and
+        # copy housing missing info in existing housing !
+        return self.browser.get_housing(housing.id, housing)
 
     #def fill_photo(self, photo, fields):
         #if 'data' in fields and photo.url and not photo.data:
             #photo.data = self.browser.open(photo.url).content
         #return photo
 
-    #OBJECTS = {Housing: fill_housing, HousingPhoto: fill_photo}
+    OBJECTS = {Housing: fill_housing} #, HousingPhoto: fill_photo}

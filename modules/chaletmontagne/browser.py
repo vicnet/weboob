@@ -19,13 +19,14 @@
 
 from weboob.browser import PagesBrowser, URL
 from weboob.capabilities.housing import Query
-from .pages import IndexPage, HousingListPage
+from .pages import IndexPage, HousingListPage, HousingPage
 
 
 class ChaletMontagneBrowser(PagesBrowser):
     BASEURL = 'https://www.chalet-montagne.com'
     index = URL('/$', IndexPage)
     search = URL('/ajax/(?P<station>.*)/(?P<begin>.*)/(?P<end>.*)/null/rechercher-une-location-ajax', HousingListPage)
+    housing = URL('http://www.chalet-montagne.com/mobile/details.php\?id=(?P<id>.*)', HousingPage)
 
     def get_cities(self, pattern):
         for city in self.index.stay_or_go().get_cities():
@@ -44,4 +45,14 @@ class ChaletMontagneBrowser(PagesBrowser):
             #, 'nbElemCourant':'10912'
             , 'valeurTri':''
             }
-        return self.search.go(data=data, station=query.cities[0].id, begin='14-02-2015', end='21-02-2015').get_housing_list()
+        while True:
+            lastid = None
+            for housing in self.search.go(data=data, station=query.cities[0].id, begin='14-02-2015', end='21-02-2015').get_housing_list():
+                lastid = housing.id
+                yield housing
+            if lastid==None:
+                return
+            data['nbElemCourant'] = lastid
+
+    def get_housing(self, id, housing=None):
+        return self.housing.go(id=id).get_housing(obj=housing)
