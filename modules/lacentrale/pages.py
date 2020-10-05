@@ -31,27 +31,32 @@ class ListingAutoPage(HTMLPage):
     @pagination
     @method
     class iter_prices(ListElement):
-        item_xpath = '//div[@class="adContainer "]'
-        next_page = Link('//section[@class="pagination"]/ul/li[@class="last"]/a')
+        item_xpath = '//div[@class="adContainer"]'
+        #next_page = Link('//section/div[@class="rch-pagination"]/ul/li[@class="arrow-btn "]/a')
+        #next_page = Link('//section/div[@class="rch-pagination"]/ul/li[contains(@class,"arrow-btn")]/a')
+        next_page = Link('//a[@title="Page suivante"]')
 
         class item(ItemElement):
             klass = Price
 
-            obj_id = CleanText('./p/a/@data-annid')
-            obj_cost = CleanDecimal('./a/div/div/div/div[@class="fieldPrice"]')
-            obj_currency = Regexp(CleanText('./a/div/div/div/div[@class="fieldPrice"]'),
+            #obj_id = CleanText('./a/@id')
+            obj_id = Regexp(
+                        CleanText('./a/@href'), #/utilitaire/auto-occasion-annonce-<id>.html
+                        '.*annonce-(.*).html')
+            obj_cost = CleanDecimal('./a//div[@class="fieldPrice"]')
+            obj_currency = Regexp(CleanText('./a//div[@class="fieldPrice"]'),
                                   '.*([%s%s%s])' % (u'€', u'$', u'£'), default=u'€')
             obj_message = Format('%s / %s / %s',
-                                 CleanText('./a/div/div/h3'),
-                                 CleanText('./a/div/div/div/div[@class="fieldYear"]'),
-                                 CleanText('./a/div/div/div/div[@class="fieldMileage"]'))
-            obj_url = Format('http://www.lacentrale.fr%s',
+                                 CleanText('./a//h3[@class="brandModelTitle"]'),
+                                 CleanText('./a//div[@class="fieldYear"]'),
+                                 CleanText('./a//div[@class="fieldMileage"]'))
+            obj_url = Format('https://www.lacentrale.fr%s',
                              CleanText('./a/@href'))
 
             obj_product = LaCentraleProduct()
 
             def obj_shop(self):
-                shop = Shop(CleanText('./p/a/@data-annid')(self))
+                shop = Shop(CleanText('./a/@id')(self))
                 return shop
 
 
@@ -63,20 +68,21 @@ class AdvertPage(HTMLPage):
 
         obj_id = Env('_id')
 
-        obj_cost = CleanDecimal('//div[@class="mainInfos"]/div/p[@class="gpfzj"]')
-        obj_currency = Regexp(CleanText('//div[@class="mainInfos"]/div/p[@class="gpfzj"]'),
+        obj_cost = CleanDecimal('//span[@class="cbm__priceWrapper"]')
+        obj_currency = Regexp(CleanText('//span[@class="cbm__priceWrapper"]'),
                               '.*([%s%s%s])' % (u'€', u'$', u'£'), default=u'€')
         obj_message = Format('%s %s',
-                             CleanText('//div[@class="mainInfos"]/div/div/h1'),
-                             CleanText('//div[@class="mainInfos"]/div/div/p'))
-        obj_url = BrowserURL('advert_page', _id=Env('_id'))
+                             CleanText('//section[@id="generalInformation"]/h1'),
+                             CleanText('//section[@id="generalInformation"]/h1/following-sibling::div[1]'))
+        obj_url = BrowserURL('auto_page', _id=Env('_id'))
 
         def obj_shop(self):
             shop = Shop(Env('_id')(self))
-            shop.name = Regexp(CleanText('(//div[@xtcz="contacter_le_vendeur"]/div/ul/li)[1]'),
-                               'Nom : (.*)')(self)
-            shop.location = JSVar(CleanText('//script'), var='tooltip')(self)
-            shop.info = CleanText('//div[@xtcz="contacter_le_vendeur"]/div/ul/li[has-class("printPhone")]')(self)
+            shop.name = CleanText('(//div[@class="cbm-sellerName"])[1]/a')(self)
+            shop.location = Regexp(
+                CleanText('(//div[@class="cbm-sellerName"])[1]/a/following-sibling::text()[1]'),
+                '\((.*)\)')(self)
+            #shop.info = CleanText('//div[@xtcz="contacter_le_vendeur"]/div/ul/li[has-class("printPhone")]')(self)
             return shop
 
         obj_product = LaCentraleProduct()

@@ -44,28 +44,30 @@ class LaCentraleModule(Module, CapPriceComparison):
         for pattern in patterns:
             pattern = pattern.lower()
             if u'€' in pattern:
-                criteria['prix_maxi'] = pattern[:pattern.find(u'€')].strip()
-            if u'km' in pattern:
+                criteria['priceMax'] = pattern[:pattern.find(u'€')].strip()
+            elif u'km' in pattern:
                 criteria['km_maxi'] = pattern[:pattern.find(u'km')].strip()
-            if u'p' in pattern[-1]:  # last char = p
+            elif u'p' in pattern[-1]:  # last char = p
                 criteria['nbdoors'] = pattern[:pattern.find(u'p')].strip()
-            if u'cit' in pattern:
+            elif u'cit' in pattern:
                 criteria['Citadine'] = 'citadine&SS_CATEGORIE=40'
-            if u'dep' in pattern:
+            elif u'dep' in pattern:
                 criteria['dptCp'] = pattern.replace('dep', '')
-            if u'pro' in pattern:
+            elif u'pro' in pattern:
                 criteria['witchSearch'] = 1
-            if u'part' in pattern:
+            elif u'part' in pattern:
                 criteria['witchSearch'] = 0
-            if u'diesel' in pattern:
+            elif u'diesel' in pattern:
                 criteria['energie'] = 2
-            if u'essence' in pattern:
+            elif u'essence' in pattern:
                 criteria['energie'] = 1
-            if u'electrique' in pattern:
+            elif u'electrique' in pattern:
                 criteria['energie'] = 4
-            if u'hybride' in pattern:
+            elif u'hybride' in pattern:
                 criteria['energie'] = '8,9'
-
+            else:
+                criteria['makesModelsCommercialNames'] = pattern
+        print(f'criteria {criteria}')
         if criteria:
             product = LaCentraleProduct()
             product._criteria = criteria

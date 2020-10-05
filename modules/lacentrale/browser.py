@@ -25,15 +25,22 @@ __all__ = ['LaCentraleBrowser']
 
 
 class LaCentraleBrowser(PagesBrowser):
-    BASEURL = 'http://www.lacentrale.fr'
+    BASEURL = 'https://www.lacentrale.fr'
 
-    list_page = URL('/listing_auto.php\?(?P<_request>.*)',
-                    ListingAutoPage)
-    advert_page = URL('/auto-occasion-annonce-(?P<_id>.*).html', AdvertPage)
+    list_page = URL('/listing\?(?P<_request>.*)', ListingAutoPage)
+    ref_page  = URL('/listing\?reference=(?P<_id>.*)', ListingAutoPage)
+    auto_page = URL('/auto-occasion-annonce-(?P<_id>.*).html', AdvertPage)
+    util_page = URL('/utilitaire-occasion-annonce-(?P<_id>.*).html', AdvertPage)
 
     def iter_prices(self, product):
         _request = '&'.join(['%s=%s' % (key, item) for key, item in product._criteria.items()])
         return self.list_page.go(_request=_request).iter_prices()
 
     def get_price(self, _id, obj):
-        return self.advert_page.go(_id=_id).get_price(obj=obj)
+        #prices = self.ref_page.go(_id=_id).iter_prices()
+        #price = next(prices, None)
+        #if price is None:
+            #return None
+        #if 'utilitaire' in price.url:
+            #return self.util_page.go(_id=_id).get_price(obj=obj)
+        return self.auto_page.go(_id=_id).get_price(obj=obj)
